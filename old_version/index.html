@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarbonPro | Resmi Beyan & Denetim Platformu</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>CarbonPro | Resmi Karbon Beyan Sistemi</h1>
+        <p>GİB ve Çevre Bakanlığı Standartlarına Uygun Ön Analiz</p>
+    </header>
+
+    <form id="analizForm">
+        <div class="dashboard">
+            <section class="card">
+                <h2>Firma Kimliği</h2>
+                <label>Firma Ünvanı</label>
+                <input type="text" id="firmaUnvan" class="input-card" placeholder="Örn: ABC Enerji A.Ş.">
+                
+                <label>Sektör</label>
+                <select id="sektor" class="input-card" onchange="checkSectorRisk()">
+                    <option value="Diğer">Diğer (Hizmet, Lojistik, Perakende vb.)</option>
+                    <option value="Demir-Çelik">Demir-Çelik (Öncelikli CBAM Kapsamı)</option>
+                    <option value="Çimento">Çimento (Öncelikli CBAM Kapsamı)</option>
+                    <option value="Alüminyum">Alüminyum (Öncelikli CBAM Kapsamı)</option>
+                    <option value="Gübre">Gübre (Öncelikli CBAM Kapsamı)</option>
+                    <option value="Hidrojen">Hidrojen (Öncelikli CBAM Kapsamı)</option>
+                </select>
+                <div id="sectorWarning" style="margin-top:10px; font-size:0.9em; padding:10px; border-radius:5px; display:none; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; color: #c0392b;"></div>
+                <button type="button" class="btn-ozel" onclick="toggleOzel('sektorOzel')" style="margin-top: 10px;">Özel Sektör Tanımla</button>
+                <input type="text" id="sektorOzel" class="input-card ozel-input" placeholder="Sektörünüzü yazın" oninput="checkSectorRisk()">
+            </section>
+
+            <section class="card">
+                <span class="badge">Scope 1</span>
+                <h2>Süreç & Yakıt</h2>
+                <label>Yıllık Akaryakıt (Litre)</label>
+                <input type="number" id="petrolOzel" class="input-card" placeholder="Örn: 5000">
+                
+                <label>Doğalgaz Tüketimi (m³)</label>
+                <input type="number" id="gazOzel" class="input-card" placeholder="Örn: 12000">
+            </section>
+
+            <section class="card">
+                <span class="badge">Scope 2</span>
+                <h2>Dolaylı Emisyon</h2>
+                <label>Yıllık Elektrik (kWh)</label>
+                <input type="number" id="elekOzel" class="input-card" placeholder="Örn: 85000">
+
+                <label>Rapor Para Birimi</label>
+                <select id="currency" class="input-card">
+                    <option value="EUR">Euro (€)</option>
+                    <option value="TRY">Türk Lirası (₺)</option>
+                </select>
+            </section>
+
+            <section class="card">
+                <span class="badge">Scope 1</span>
+                <h2>Üretim Süreci</h2>
+                <label>Yıllık Üretim Miktarı (Ton)</label>
+                <input type="number" id="uretimOzel" class="input-card" placeholder="Örn: 1500">
+            </section>
+
+            <section class="card">
+                <h2>Denetim & Uyum</h2>
+                <label>ISO 14064 Mevcut mu?</label>
+                <select id="belgeSelect" class="input-card">
+                    <option value="Hayır">Hayır</option>
+                    <option value="Evet">Evet</option>
+                </select>
+                
+                <label>Enerji Takip Sistemi</label>
+                <select id="takipSelect" class="input-card">
+                    <option value="Manuel">Manuel (Excel)</option>
+                    <option value="Dijital">Dijital Otomasyon</option>
+                </select>
+            </section>
+        </div>
+
+        <div class="btn-container">
+            <button type="submit" class="btn-main">Analizi Çalıştır</button>
+            <button type="button" id="btnKaydet" class="btn-archive">Veriyi Mühürle</button>
+            <button type="button" id="indirPDF" class="btn-pdf">Resmi Rapor Üret (PDF)</button>
+        </div>
+    </form>
+
+    <div id="vergiKart" class="tax-info" style="display:none;">
+        <h3>Tahmini Yıllık Karbon Vergisi Yükümlülüğü</h3>
+        <p id="taxAmount">0</p>
+        <small id="firmaRaporAd"></small>
+    </div>
+
+    <div class="progress-container" id="progCont">
+        <div class="progress-bar" id="progressBar">0%</div>
+    </div>
+
+    <div class="charts-section">
+        <div class="chart-container">
+            <h3>📊 Emisyon Dağılımı</h3>
+            <canvas id="kategoriGrafik"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>📈 Emisyon Trend Analizi</h3>
+            <canvas id="trendChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>⚠️ CBAM Risk Skoru</h3>
+            <canvas id="riskGaugeChart"></canvas>
+        </div>
+    </div>
+
+    <div class="history-section">
+        <h2>🏛️ Resmi Beyan Arşivi</h2>
+        <div class="table-wrapper">
+            <table id="gecmisTablo">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Akaryakıt (L)</th>
+                        <th>Doğalgaz (m³)</th>
+                        <th>Elektrik (kWh)</th>
+                        <th>Üretim (Ton)</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="gecmisGövde"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
