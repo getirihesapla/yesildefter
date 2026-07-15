@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { dbService } from '../services/db';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import '../App.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement);
@@ -188,6 +189,49 @@ function Dashboard() {
     doc.save(`${userData.unvan || 'Firma'}_TSRS_CBAM_Raporu.pdf`);
   };
 
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Üretim (Ton)', 'Elektrik (kWh)', 'Doğalgaz (m³)', 'Akaryakıt (L)']
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sablon");
+    XLSX.writeFile(wb, "YesilDefter_Sablon.xlsx");
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        
+        if(data.length > 1) {
+          const row = data[1];
+          setUserData(prev => ({
+            ...prev,
+            uretim: row[0] || prev.uretim,
+            elek: row[1] || prev.elek,
+            gaz: row[2] || prev.gaz,
+            petrol: row[3] || prev.petrol
+          }));
+          alert('Excel verileri başarıyla içe aktarıldı! Değerleri ekranda görebilirsiniz.');
+        } else {
+          alert('Dosya boş veya şablon formatı hatalı.');
+        }
+      } catch (err) {
+        alert('Dosya okunurken hata oluştu. Lütfen geçerli bir Excel dosyası yükleyin.');
+      }
+      e.target.value = null; // reset input
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const handleSendMessage = () => {
     if(!chatInput.trim()) return;
     setChatMessages([...chatMessages, {role: 'user', text: chatInput}]);
@@ -303,7 +347,22 @@ function Dashboard() {
             </div>
 
             <div className="glass-panel">
-              <div className="card-title"><Database size={24} color="var(--accent-secondary)" /> <h3>Emisyon (Scope 1-2) Verileri</h3></div>
+              <div className="card-title" style={{marginTop: '32px'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                  <Database size={24} color="var(--accent-secondary)" /> 
+                  <h3>Emisyon (Scope 1-2) Verileri</h3>
+                </div>
+                <div style={{display: 'flex', gap: '12px'}}>
+                  <button className="btn-secondary" onClick={downloadTemplate} style={{fontSize: '0.85rem', padding: '8px 12px'}}>
+                    <Download size={16} /> Şablon İndir
+                  </button>
+                  <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" style={{display: 'none'}} onChange={handleFileUpload} />
+                  <button className="btn-primary" onClick={() => document.getElementById('excel-upload').click()} style={{fontSize: '0.85rem', padding: '8px 12px'}}>
+                    Excel'den Yükle
+                  </button>
+                </div>
+              </div>
+              
               <div className="grid-2">
                 <div className="form-group"><label>Üretim (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.uretim} onChange={e => handleInput(null, 'uretim', e.target.value)} /></div>
                 <div className="form-group"><label>Elektrik (kWh)</label><input type="number" className="premium-input" placeholder="0" value={userData.elek} onChange={e => handleInput(null, 'elek', e.target.value)} /></div>

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
+import LegalPage from './pages/LegalPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 const PrivateRoute = ({ children }) => {
@@ -17,6 +18,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/yasal/:type" element={<LegalPage />} />
           <Route path="/dashboard" element={
             <PrivateRoute>
               <Dashboard />

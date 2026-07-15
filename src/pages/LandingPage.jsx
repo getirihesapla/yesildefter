@@ -254,14 +254,14 @@ function LandingPage() {
           <div>
             <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '24px' }}>Bizimle İletişime Geçin</h2>
             <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '40px' }}>
-              Kurumsal deneme sürümü, ERP entegrasyon talepleri ve fiyatlandırma için çevre mühendislerimizden oluşan uzman ekibimize ulaşın.
+              Kurumsal deneme sürümü, tek tıkla Excel/CSV veri aktarımı detayları ve fiyatlandırma için çevre mühendislerimizden oluşan uzman ekibimize ulaşın.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ padding: '12px', background: 'rgba(16,185,129,0.1)', borderRadius: '12px' }}><Mail color="#10b981" /></div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1.1rem' }}>E-Posta</h4>
-                  <span style={{ color: '#94a3b8' }}>kurumsal@yesildefter.com.tr</span>
+                  <a href="mailto:korfuco@gmail.com" style={{ color: '#10b981', textDecoration: 'none', transition: 'color 0.2s' }} className="hover-white">korfuco@gmail.com</a>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -275,7 +275,7 @@ function LandingPage() {
                 <div style={{ padding: '12px', background: 'rgba(16,185,129,0.1)', borderRadius: '12px' }}><MapPin color="#10b981" /></div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1.1rem' }}>Genel Merkez</h4>
-                  <span style={{ color: '#94a3b8' }}>Bilişim Vadisi, Teknoloji Geliştirme Bölgesi, Gebze/Kocaeli</span>
+                  <span style={{ color: '#10b981' }}>Dijital Ofis (Türkiye'nin Her Yerindeyiz)</span>
                 </div>
               </div>
             </div>
@@ -300,9 +300,9 @@ function LandingPage() {
           <span style={{ fontWeight: 600 }}>© 2026 YeşilDefter Teknolojileri. Tüm hakları saklıdır.</span>
         </div>
         <div style={{ display: 'flex', gap: '24px' }}>
-          <span style={{cursor: 'pointer'}} className="hover-white">Gizlilik Politikası</span>
-          <span style={{cursor: 'pointer'}} className="hover-white">Kullanım Koşulları</span>
-          <span style={{cursor: 'pointer'}} className="hover-white">KVKK Metni</span>
+          <span onClick={() => navigate('/yasal/gizlilik')} style={{cursor: 'pointer'}} className="hover-white">Gizlilik Politikası</span>
+          <span onClick={() => navigate('/yasal/kosullar')} style={{cursor: 'pointer'}} className="hover-white">Kullanım Koşulları</span>
+          <span onClick={() => navigate('/yasal/kvkk')} style={{cursor: 'pointer'}} className="hover-white">KVKK Metni</span>
         </div>
       </footer>
 
