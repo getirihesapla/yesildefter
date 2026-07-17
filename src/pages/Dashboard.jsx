@@ -35,6 +35,7 @@ function Dashboard() {
     petrol: '', gaz: '', elek: '', uretim: '',
     ulasimKm: '', lojistikTonKm: '', atikTon: '',
     esg: { su: '', kadinOran: '', kalite: false },
+    iso14001Number: '',
     wallet: { irec: 0, carbonCredit: 0 },
     hedging: { isHedging: false, fixedPrice: 0 }
   });
@@ -99,19 +100,26 @@ function Dashboard() {
     let netEmisyon = Math.max(0, brutEmisyon - offsetIrec - offsetCarbon);
 
     const appliedPrice = d.hedging.isHedging ? d.hedging.fixedPrice : CBAM_PRICE_EUR;
-    const cbamMaliyet = netEmisyon * appliedPrice;
-    const trEtsMahsup = netEmisyon * TR_ETS_PRICE_EUR;
-    const netOdenecek = Math.max(0, cbamMaliyet - trEtsMahsup);
+    let cbamMaliyet = netEmisyon * appliedPrice;
+    let trEtsMahsup = netEmisyon * TR_ETS_PRICE_EUR;
+    let netOdenecek = Math.max(0, cbamMaliyet - trEtsMahsup);
 
     let esgScore = 50;
-    if (d.esg.kalite) esgScore += 20;
+    let isoDiscount = 0;
+    
+    if (d.esg.kalite) {
+      esgScore += 20;
+      // ISO 14001 %10 İndirim / Muafiyet
+      isoDiscount = netOdenecek * 0.10;
+      netOdenecek = netOdenecek - isoDiscount;
+    }
     if (parseFloat(d.esg.kadinOran) > 30) esgScore += 15;
     if (parseFloat(d.esg.su) < 10000 && parseFloat(d.esg.su) > 0) esgScore += 15;
 
     setAnalyzedData({
       petrolTon, gazTon, elekTon, uretimTon, ulasimTon, lojistikTon, atikTon,
       brutEmisyon, netEmisyon, offsetIrec, offsetCarbon,
-      cbamMaliyet, trEtsMahsup, netOdenecek, appliedPrice, esgScore
+      cbamMaliyet, trEtsMahsup, netOdenecek, appliedPrice, esgScore, isoDiscount
     });
     
     setActiveMenu('report');
@@ -157,9 +165,10 @@ function Dashboard() {
     doc.text(`Firma: ${userData.unvan || 'Belirtilmemiş'}`, 15, 35);
     doc.text(`Sektör: ${userData.sektor}`, 15, 42);
     doc.text(`ESG Skoru: ${analyzedData.esgScore} / 100`, 15, 49);
+    doc.text(`ISO 14001: ${userData.esg.kalite ? 'Mevcut (' + userData.iso14001Number + ')' : 'Yok'}`, 15, 56);
 
     autoTable(doc, {
-      startY: 55,
+      startY: 62,
       head: [['Emisyon Kaynağı', 'Ton CO2e']],
       body: [
         ['Akaryakıt (Scope 1)', analyzedData.petrolTon.toFixed(2)],
@@ -182,9 +191,18 @@ function Dashboard() {
     doc.text(`Kullanılan SKDM Fiyatı: ${analyzedData.appliedPrice.toFixed(2)} EUR ${userData.hedging.isHedging ? '(VCC ile Sabitlendi)' : ''}`, 15, y+8);
     doc.text(`AB SKDM Brüt Maliyet: ${analyzedData.cbamMaliyet.toFixed(2)} EUR`, 15, y+16);
     doc.text(`TR-ETS Mahsuplaşması: -${analyzedData.trEtsMahsup.toFixed(2)} EUR`, 15, y+24);
+    
+    let nextY = y + 32;
+    if (analyzedData.isoDiscount > 0) {
+      doc.setTextColor(16, 185, 129);
+      doc.text(`ISO 14001 Muafiyeti (%10): -${analyzedData.isoDiscount.toFixed(2)} EUR`, 15, nextY);
+      doc.setTextColor(50);
+      nextY += 8;
+    }
+
     try { doc.setFont("Roboto", "bold"); } catch(e){}
     doc.setTextColor(239, 68, 68);
-    doc.text(`Net Ödenecek Risk: ${analyzedData.netOdenecek.toFixed(2)} EUR`, 15, y+34);
+    doc.text(`Net Ödenecek Risk: ${analyzedData.netOdenecek.toFixed(2)} EUR`, 15, nextY + 2);
 
     doc.save(`${userData.unvan || 'Firma'}_TSRS_CBAM_Raporu.pdf`);
   };
@@ -374,10 +392,24 @@ function Dashboard() {
               <div className="grid-3">
                 <div className="form-group"><label>Su Tüketimi (m³)</label><input type="number" className="premium-input" placeholder="0" value={userData.esg.su} onChange={e => handleInput('esg', 'su', e.target.value)} /></div>
                 <div className="form-group"><label>Kadın Çalışan Oranı (%)</label><input type="number" className="premium-input" placeholder="0" value={userData.esg.kadinOran} onChange={e => handleInput('esg', 'kadinOran', e.target.value)} /></div>
-                <div className="form-group"><label>ISO 14001 Belgesi</label>
-                  <select className="premium-input" value={userData.esg.kalite ? 'yes' : 'no'} onChange={e => handleInput('esg', 'kalite', e.target.value === 'yes')}>
-                    <option value="no">Yok</option><option value="yes">Mevcut</option>
-                  </select>
+                <div className="form-group">
+                  <label>ISO 14001 Belgesi</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <select className="premium-input" value={userData.esg.kalite ? 'yes' : 'no'} onChange={e => handleInput('esg', 'kalite', e.target.value === 'yes')}>
+                      <option value="no">Yok</option>
+                      <option value="yes">Mevcut (Sisteme Beyan Edildi)</option>
+                    </select>
+                    {userData.esg.kalite && (
+                      <input 
+                        type="text" 
+                        className="premium-input" 
+                        placeholder="Sertifika Numarası Girin" 
+                        value={userData.iso14001Number || ''} 
+                        onChange={e => handleInput(null, 'iso14001Number', e.target.value)} 
+                        style={{ borderColor: '#10b981', background: 'rgba(16,185,129,0.05)' }}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -518,6 +550,15 @@ function Dashboard() {
                     <div className="stat-value">{analyzedData.esgScore} <span style={{fontSize:'1rem'}}>/ 100</span></div>
                   </div>
                 </div>
+
+                {analyzedData.isoDiscount > 0 && (
+                  <div className="alert" style={{marginBottom: '16px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderRadius: '12px'}}>
+                    <ShieldCheck size={24} />
+                    <div>
+                      <strong>ISO 14001 Çevre Muafiyeti (%10 İndirim):</strong> -€{analyzedData.isoDiscount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="alert alert-danger" style={{marginBottom: '32px'}}>
                   <AlertTriangle size={24} />
