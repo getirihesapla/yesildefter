@@ -644,7 +644,7 @@ function Dashboard() {
 
             <div className="glass-panel">
               <div className="card-title"><Leaf size={24} color="var(--accent-primary)" /> <h3>LCA (Yaşam Döngüsü Analizi) Simülatörü</h3></div>
-              <p style={{marginBottom: '24px'}}>Ürün bazlı karbon ayak izi (ISO 14067) hesaplamak için "Beşikten Mezara" yaşam döngüsü verilerini girin.</p>
+              <p style={{marginBottom: '24px'}}>Ürün bazlı karbon ayak izi (ISO 14067) hesaplamak için "Hammadde'den Geri Dönüşüme" yaşam döngüsü verilerini girin.</p>
               
               <div className="grid-3" style={{marginBottom: '24px'}}>
                 <div className="form-group"><label>Hammadde Aşama (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 2.5" value={userData.lcaData?.raw || ''} onChange={e => handleInput('lcaData', 'raw', e.target.value)} /></div>
@@ -655,7 +655,7 @@ function Dashboard() {
               
               {showLcaMap && (
                 <div style={{marginTop: '32px', padding: '32px 24px', background: 'rgba(11, 17, 32, 0.7)', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.4)', boxShadow: '0 10px 30px -10px rgba(16, 185, 129, 0.2)'}}>
-                  <h4 style={{color: '#10b981', marginBottom: '32px', textAlign: 'center', fontSize: '1.2rem'}}>Beşikten Mezara (Cradle-to-Grave) Ürün Yaşam Döngüsü Haritası</h4>
+                  <h4 style={{color: '#10b981', marginBottom: '32px', textAlign: 'center', fontSize: '1.2rem'}}>Hammadde'den Geri Dönüşüme Yaşam Döngüsü Haritası</h4>
                   
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative'}}>
                     <div style={{position: 'absolute', top: '24px', left: '10%', right: '10%', height: '3px', background: 'rgba(16, 185, 129, 0.3)', zIndex: 0}}></div>
@@ -665,7 +665,7 @@ function Dashboard() {
                       { label: 'Üretim (A3)', val: userData.lcaData?.manu || 0 },
                       { label: 'Lojistik (A4)', val: userData.lcaData?.log || 0 },
                       { label: 'Kullanım (B1)', val: '0.5' },
-                      { label: 'Mezar/Atık (C4)', val: '0.2' }
+                      { label: 'Geri Dönüşüm (C4)', val: '0.2' }
                     ].map((step, idx) => {
                       const value = parseFloat(step.val) || 0;
                       const totalLca = (parseFloat(userData.lcaData?.raw)||0) + (parseFloat(userData.lcaData?.manu)||0) + (parseFloat(userData.lcaData?.log)||0) + 0.5 + 0.2;
