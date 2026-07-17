@@ -5,6 +5,7 @@ import { LayoutDashboard, Database, Wallet, ShieldCheck, FileText, Download, Fac
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dbService } from '../services/db';
+import emailjs from '@emailjs/browser';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -48,6 +49,9 @@ function Dashboard() {
   const [isConnectingErp, setIsConnectingErp] = useState(false);
   const [connectedErpName, setConnectedErpName] = useState('');
   const [erpSuccessMsg, setErpSuccessMsg] = useState('');
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteStatus, setInviteStatus] = useState('idle');
 
   // Load user data on mount
   useEffect(() => {
@@ -165,6 +169,28 @@ function Dashboard() {
         setErpSuccessMsg('');
       }, 8000);
     }, 2500);
+  };
+
+  const sendInvite = async () => {
+    if(!inviteEmail) return;
+    setInviteStatus('loading');
+    
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = 'template_n62omfl';
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    try {
+      await emailjs.send(serviceId, templateId, {
+        to_email: inviteEmail
+      }, publicKey);
+      setInviteStatus('success');
+      setInviteEmail('');
+      setTimeout(() => setInviteStatus('idle'), 5000);
+    } catch(err) {
+      console.error("Email error: ", err);
+      setInviteStatus('error');
+      setTimeout(() => setInviteStatus('idle'), 5000);
+    }
   };
 
   const generatePDF = async () => {
@@ -477,8 +503,12 @@ function Dashboard() {
               <div className="grid-2">
                 <div style={{ background: 'rgba(11, 17, 32, 0.5)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                   <h4 style={{marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}><Mail size={20} color="#0ea5e9"/> Yeni Tedarikçi Davet Et</h4>
-                  <input type="email" className="premium-input" placeholder="ornek@firma.com" style={{marginBottom: '16px'}} />
-                  <button className="btn-primary" style={{width: '100%', justifyContent: 'center'}}>Davet Linki Gönder</button>
+                  <input type="email" className="premium-input" placeholder="ornek@firma.com" style={{marginBottom: '16px'}} value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+                  <button className="btn-primary" style={{width: '100%', justifyContent: 'center'}} onClick={sendInvite} disabled={inviteStatus === 'loading'}>
+                    {inviteStatus === 'loading' ? 'Davet Gönderiliyor...' : 'Davet Linki Gönder'}
+                  </button>
+                  {inviteStatus === 'success' && <div style={{color: '#10b981', fontSize: '0.85rem', marginTop: '12px', textAlign: 'center'}}>Davet maili başarıyla iletildi!</div>}
+                  {inviteStatus === 'error' && <div style={{color: '#ef4444', fontSize: '0.85rem', marginTop: '12px', textAlign: 'center'}}>Davet gönderilirken hata oluştu.</div>}
                 </div>
                 
                 <div style={{ background: 'rgba(11, 17, 32, 0.5)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
