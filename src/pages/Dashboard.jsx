@@ -171,9 +171,12 @@ function Dashboard() {
     }, 2500);
   };
 
+  const [inviteErrorMsg, setInviteErrorMsg] = useState('');
+
   const sendInvite = async () => {
     if(!inviteEmail) return;
     setInviteStatus('loading');
+    setInviteErrorMsg('');
     
     // Vercel'deki env eksikliğini gidermek için şifreler (Zaten public key'dir, istemcide görünür)
     const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_qvdoilm';
@@ -183,14 +186,15 @@ function Dashboard() {
     try {
       await emailjs.send(serviceId, templateId, {
         to_email: inviteEmail
-      }, publicKey);
+      }, { publicKey: publicKey });
       setInviteStatus('success');
       setInviteEmail('');
       setTimeout(() => setInviteStatus('idle'), 5000);
     } catch(err) {
       console.error("Email error: ", err);
+      setInviteErrorMsg(err?.text || err?.message || JSON.stringify(err));
       setInviteStatus('error');
-      setTimeout(() => setInviteStatus('idle'), 5000);
+      setTimeout(() => setInviteStatus('idle'), 10000);
     }
   };
 
@@ -509,7 +513,7 @@ function Dashboard() {
                     {inviteStatus === 'loading' ? 'Davet Gönderiliyor...' : 'Davet Linki Gönder'}
                   </button>
                   {inviteStatus === 'success' && <div style={{color: '#10b981', fontSize: '0.85rem', marginTop: '12px', textAlign: 'center'}}>Davet maili başarıyla iletildi!</div>}
-                  {inviteStatus === 'error' && <div style={{color: '#ef4444', fontSize: '0.85rem', marginTop: '12px', textAlign: 'center'}}>Davet gönderilirken hata oluştu.</div>}
+                  {inviteStatus === 'error' && <div style={{color: '#ef4444', fontSize: '0.85rem', marginTop: '12px', textAlign: 'center'}}>Hata: {inviteErrorMsg}</div>}
                 </div>
                 
                 <div style={{ background: 'rgba(11, 17, 32, 0.5)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
