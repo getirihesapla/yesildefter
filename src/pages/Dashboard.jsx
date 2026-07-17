@@ -175,9 +175,10 @@ function Dashboard() {
     if(!inviteEmail) return;
     setInviteStatus('loading');
     
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    // Vercel'deki env eksikliğini gidermek için şifreler (Zaten public key'dir, istemcide görünür)
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_qvdoilm';
     const templateId = 'template_n62omfl';
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'nbPSy49iBClsnmDCK';
 
     try {
       await emailjs.send(serviceId, templateId, {
