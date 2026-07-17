@@ -6,7 +6,7 @@ import emailjs from '@emailjs/browser';
 import { Leaf, Mail, Lock, Building2, ArrowRight, AlertCircle, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 function LoginPage() {
-  const [view, setView] = useState('login'); // 'login', 'register', 'verify', 'forgot', 'reset'
+  const [view, setView] = useState('login'); // 'login', 'register', 'verify', 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -15,9 +15,10 @@ function LoginPage() {
   const [userOtp, setUserOtp] = useState(''); // Entered by user
   
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleLoginSubmit = async (e) => {
@@ -32,11 +33,18 @@ function LoginPage() {
     setIsSubmitting(false);
   };
 
+  const handleGoogleLogin = async () => {
+    setError(''); setIsSubmitting(true);
+    const result = await loginWithGoogle();
+    if (result.success) navigate('/dashboard');
+    else setError(result.error);
+    setIsSubmitting(false);
+  };
+
   const handleRegisterInitiate = async (e) => {
     e.preventDefault();
     if (!email || !password || !companyName) { setError('Lütfen tüm alanları doldurun.'); return; }
     
-    // Simulate checking if email already exists before sending OTP
     setIsSubmitting(true);
     const { exists } = await dbService.checkEmailExists(email);
     setIsSubmitting(false);
@@ -46,12 +54,10 @@ function LoginPage() {
       return;
     }
 
-    // Generate random 6 digit OTP
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setOtpCode(generatedOtp);
     setView('verify');
     
-    // Send email using EmailJS
     const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
     const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
     const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
@@ -69,7 +75,6 @@ function LoginPage() {
         setError('E-posta gönderilirken bir hata oluştu.');
       }
     } else {
-      // Fallback for development if keys are not set
       alert(`[GERÇEK API EKSİK - SİMÜLASYON]\n\n${email} adresine doğrulama kodu gönderildi.\n\nKODUNUZ: ${generatedOtp}`);
     }
   };
@@ -92,53 +97,13 @@ function LoginPage() {
     if (!email) { setError('Lütfen kayıtlı e-posta adresinizi girin.'); return; }
     
     setError(''); setIsSubmitting(true);
-    const { exists } = await dbService.checkEmailExists(email);
-    setIsSubmitting(false);
-    
-    if (!exists) {
-      setError('Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.');
-      return;
-    }
-
-    // Generate random 6 digit OTP for reset
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setOtpCode(generatedOtp);
-    setUserOtp('');
-    setPassword(''); // We will use password field for the NEW password
-    setView('reset');
-    
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-    if (serviceId && serviceId !== 'BURAYA_YAZIN') {
-      try {
-        await emailjs.send(serviceId, templateId, {
-          to_email: email,
-          to_name: 'Kullanıcı',
-          otp_code: generatedOtp,
-          message: 'Şifrenizi sıfırlamak için lütfen bu kodu kullanın.'
-        }, publicKey);
-      } catch (err) {
-        console.error("EmailJS Error:", err);
-        setError('E-posta gönderilirken bir hata oluştu.');
-      }
-    } else {
-      alert(`[GERÇEK API EKSİK - SİMÜLASYON]\n\n${email} adresine ŞİFRE SIFIRLAMA kodu gönderildi.\n\nKODUNUZ: ${generatedOtp}`);
-    }
-  };
-
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
-    if (userOtp !== otpCode) { setError('Hatalı veya süresi dolmuş kod.'); return; }
-    if (!password || password.length < 6) { setError('Yeni şifre en az 6 karakter olmalıdır.'); return; }
-    
-    setError(''); setIsSubmitting(true);
     try {
-      await dbService.resetPassword(email, password);
-      alert('Şifreniz başarıyla sıfırlandı. Artık giriş yapabilirsiniz.');
-      setView('login');
-      setPassword('');
+      await dbService.resetPassword(email);
+      setSuccessMsg('Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen e-postanızı kontrol edin.');
+      setTimeout(() => {
+        setView('login');
+        setSuccessMsg('');
+      }, 5000);
     } catch (err) {
       setError(err.message);
     }
@@ -172,26 +137,30 @@ function LoginPage() {
 
       <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px', padding: '48px', width: '100%', maxWidth: '480px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
         
-        {/* Header Texts based on View */}
         <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'white', marginBottom: '8px', textAlign: 'center' }}>
           {view === 'login' && 'Hoş Geldiniz'}
           {view === 'register' && 'SaaS Hesabı Oluştur'}
           {view === 'verify' && 'E-Posta Doğrulama'}
           {view === 'forgot' && 'Şifremi Unuttum'}
-          {view === 'reset' && 'Yeni Şifre Belirle'}
         </h2>
         <p style={{ color: '#94a3b8', textAlign: 'center', marginBottom: '32px' }}>
           {view === 'login' && 'Kurumsal karbon hesabınıza giriş yapın.'}
           {view === 'register' && 'Şirketiniz için yeşil dönüşümü hemen başlatın.'}
           {view === 'verify' && `${email} adresine gönderdiğimiz 6 haneli kodu girin.`}
-          {view === 'forgot' && 'Kayıtlı e-posta adresinizi girin, sıfırlama kodu gönderelim.'}
-          {view === 'reset' && 'E-postanıza gelen kodu ve yeni şifrenizi girin.'}
+          {view === 'forgot' && 'Kayıtlı e-posta adresinizi girin, sıfırlama linki gönderelim.'}
         </p>
 
         {error && (
           <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
             <AlertCircle size={18} />
             {error}
+          </div>
+        )}
+
+        {successMsg && (
+          <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+            <CheckCircle2 size={18} />
+            {successMsg}
           </div>
         )}
 
@@ -202,13 +171,29 @@ function LoginPage() {
             {renderInput(<Lock size={20}/>, 'password', '••••••••', password, setPassword, 'Şifre')}
             
             <div style={{ textAlign: 'right', marginTop: '-12px', marginBottom: '20px' }}>
-              <button type="button" onClick={() => { setView('forgot'); setError(''); }} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.9rem', cursor: 'pointer', padding: 0 }}>
+              <button type="button" onClick={() => { setView('forgot'); setError(''); setSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: '#0ea5e9', fontSize: '0.9rem', cursor: 'pointer', padding: 0 }}>
                 Şifremi Unuttum
               </button>
             </div>
 
-            <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #10b981 0%, #0ea5e9 100%)', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #10b981 0%, #0ea5e9 100%)', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
               {isSubmitting ? 'Giriş Yapılıyor...' : 'Giriş Yap'} {!isSubmitting && <ArrowRight size={20} />}
+            </button>
+            
+            <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#64748b' }}>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+              <span style={{ padding: '0 10px', fontSize: '0.85rem' }}>VEYA</span>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+            </div>
+
+            <button type="button" onClick={handleGoogleLogin} disabled={isSubmitting} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '16px', borderRadius: '12px', fontWeight: 500, fontSize: '1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Google ile Giriş Yap
             </button>
           </form>
         )}
@@ -220,8 +205,24 @@ function LoginPage() {
             {renderInput(<Mail size={20}/>, 'email', 'ornek@firma.com.tr', email, setEmail, 'Kurumsal E-Posta')}
             {renderInput(<Lock size={20}/>, 'password', '••••••••', password, setPassword, 'Şifre')}
             
-            <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #10b981 0%, #0ea5e9 100%)', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #10b981 0%, #0ea5e9 100%)', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
               {isSubmitting ? 'İşleniyor...' : 'Kayıt Ol'} {!isSubmitting && <ArrowRight size={20} />}
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: '#64748b' }}>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+              <span style={{ padding: '0 10px', fontSize: '0.85rem' }}>VEYA</span>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+            </div>
+
+            <button type="button" onClick={handleGoogleLogin} disabled={isSubmitting} style={{ width: '100%', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '16px', borderRadius: '12px', fontWeight: 500, fontSize: '1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Google ile Devam Et
             </button>
           </form>
         )}
@@ -246,25 +247,10 @@ function LoginPage() {
             {renderInput(<Mail size={20}/>, 'email', 'ornek@firma.com.tr', email, setEmail, 'Kurumsal E-Posta')}
             
             <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: '#0ea5e9', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              {isSubmitting ? 'Gönderiliyor...' : 'Sıfırlama Kodu Gönder'} {!isSubmitting && <Mail size={20} />}
+              {isSubmitting ? 'Gönderiliyor...' : 'Sıfırlama Linki Gönder'} {!isSubmitting && <Mail size={20} />}
             </button>
             <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <button type="button" onClick={() => { setView('login'); setError(''); }} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%' }}><ArrowLeft size={16}/> Giriş Ekranına Dön</button>
-            </div>
-          </form>
-        )}
-
-        {/* --- RESET PASSWORD VIEW --- */}
-        {view === 'reset' && (
-          <form onSubmit={handleResetSubmit}>
-            {renderInput(<KeyRound size={20}/>, 'text', '123456', userOtp, setUserOtp, 'E-Postanıza Gelen Kod')}
-            {renderInput(<Lock size={20}/>, 'password', 'Yeni Şifreniz', password, setPassword, 'Yeni Şifre')}
-            
-            <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              {isSubmitting ? 'Güncelleniyor...' : 'Şifremi Güncelle'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <button type="button" onClick={() => { setView('forgot'); setUserOtp(''); setPassword(''); }} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer' }}>Geri Dön</button>
+              <button type="button" onClick={() => { setView('login'); setError(''); setSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%' }}><ArrowLeft size={16}/> Giriş Ekranına Dön</button>
             </div>
           </form>
         )}
@@ -277,7 +263,7 @@ function LoginPage() {
             </span>
             <button 
               type="button"
-              onClick={() => { setView(view === 'login' ? 'register' : 'login'); setError(''); }}
+              onClick={() => { setView(view === 'login' ? 'register' : 'login'); setError(''); setSuccessMsg(''); }}
               style={{ background: 'none', border: 'none', color: '#10b981', fontWeight: 600, cursor: 'pointer', fontSize: '1rem', padding: 0 }}
             >
               {view === 'login' ? 'Kayıt Ol' : 'Giriş Yap'}
