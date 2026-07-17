@@ -36,12 +36,14 @@ function Dashboard() {
     ulasimKm: '', lojistikTonKm: '', atikTon: '',
     esg: { su: '', kadinOran: '', kalite: false },
     iso14001Number: '',
+    lcaData: { raw: '', manu: '', log: '' },
     wallet: { irec: 0, carbonCredit: 0 },
     hedging: { isHedging: false, fixedPrice: 0 }
   });
 
   const [analyzedData, setAnalyzedData] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showLcaMap, setShowLcaMap] = useState(false);
 
   // Load user data on mount
   useEffect(() => {
@@ -645,11 +647,44 @@ function Dashboard() {
               <p style={{marginBottom: '24px'}}>Ürün bazlı karbon ayak izi (ISO 14067) hesaplamak için "Beşikten Mezara" yaşam döngüsü verilerini girin.</p>
               
               <div className="grid-3" style={{marginBottom: '24px'}}>
-                <div className="form-group"><label>Hammadde Aşama (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 2.5" /></div>
-                <div className="form-group"><label>Üretim (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 1.2" /></div>
-                <div className="form-group"><label>Lojistik & Dağıtım (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 0.8" /></div>
+                <div className="form-group"><label>Hammadde Aşama (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 2.5" value={userData.lcaData?.raw || ''} onChange={e => handleInput('lcaData', 'raw', e.target.value)} /></div>
+                <div className="form-group"><label>Üretim (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 1.2" value={userData.lcaData?.manu || ''} onChange={e => handleInput('lcaData', 'manu', e.target.value)} /></div>
+                <div className="form-group"><label>Lojistik & Dağıtım (tCO2e)</label><input type="number" className="premium-input" placeholder="Örn: 0.8" value={userData.lcaData?.log || ''} onChange={e => handleInput('lcaData', 'log', e.target.value)} /></div>
               </div>
-              <button className="btn-primary">LCA Ürün Haritasını Çıkar</button>
+              <button className="btn-primary" onClick={() => setShowLcaMap(true)}>LCA Ürün Haritasını Çıkar</button>
+              
+              {showLcaMap && (
+                <div style={{marginTop: '32px', padding: '32px 24px', background: 'rgba(11, 17, 32, 0.7)', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.4)', boxShadow: '0 10px 30px -10px rgba(16, 185, 129, 0.2)'}}>
+                  <h4 style={{color: '#10b981', marginBottom: '32px', textAlign: 'center', fontSize: '1.2rem'}}>Beşikten Mezara (Cradle-to-Grave) Ürün Yaşam Döngüsü Haritası</h4>
+                  
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative'}}>
+                    <div style={{position: 'absolute', top: '24px', left: '10%', right: '10%', height: '3px', background: 'rgba(16, 185, 129, 0.3)', zIndex: 0}}></div>
+                    
+                    {[
+                      { label: 'Hammadde (A1)', val: userData.lcaData?.raw || 0 },
+                      { label: 'Üretim (A3)', val: userData.lcaData?.manu || 0 },
+                      { label: 'Lojistik (A4)', val: userData.lcaData?.log || 0 },
+                      { label: 'Kullanım (B1)', val: '0.5' },
+                      { label: 'Mezar/Atık (C4)', val: '0.2' }
+                    ].map((step, idx) => {
+                      const value = parseFloat(step.val) || 0;
+                      const totalLca = (parseFloat(userData.lcaData?.raw)||0) + (parseFloat(userData.lcaData?.manu)||0) + (parseFloat(userData.lcaData?.log)||0) + 0.5 + 0.2;
+                      const perc = totalLca > 0 ? ((value / totalLca) * 100).toFixed(1) : 0;
+                      
+                      return (
+                        <div key={idx} style={{position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20%'}}>
+                          <div style={{width: '56px', height: '56px', borderRadius: '50%', background: value > 0 ? '#10b981' : '#1e293b', border: `3px solid ${value > 0 ? '#34d399' : '#475569'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', marginBottom: '16px', fontSize: '1.2rem', boxShadow: value > 0 ? '0 0 15px rgba(16, 185, 129, 0.5)' : 'none', transition: 'all 0.3s ease'}}>
+                            {idx + 1}
+                          </div>
+                          <span style={{fontWeight: 700, color: 'white', fontSize: '0.95rem', textAlign: 'center'}}>{step.label}</span>
+                          <span style={{color: '#34d399', fontSize: '0.85rem', marginTop: '6px', fontWeight: 600}}>{value} tCO2e</span>
+                          <span style={{color: '#94a3b8', fontSize: '0.8rem', marginTop: '2px'}}>Etki: %{perc}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
