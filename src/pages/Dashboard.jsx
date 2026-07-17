@@ -185,7 +185,10 @@ function Dashboard() {
 
     try {
       await emailjs.send(serviceId, templateId, {
-        to_email: inviteEmail
+        to_email: inviteEmail,
+        email: inviteEmail,
+        reply_to: inviteEmail,
+        to: inviteEmail
       }, { publicKey: publicKey });
       setInviteStatus('success');
       setInviteEmail('');
