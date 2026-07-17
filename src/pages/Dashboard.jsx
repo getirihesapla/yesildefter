@@ -44,6 +44,10 @@ function Dashboard() {
   const [analyzedData, setAnalyzedData] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showLcaMap, setShowLcaMap] = useState(false);
+  
+  const [isConnectingErp, setIsConnectingErp] = useState(false);
+  const [connectedErpName, setConnectedErpName] = useState('');
+  const [erpSuccessMsg, setErpSuccessMsg] = useState('');
 
   // Load user data on mount
   useEffect(() => {
@@ -138,6 +142,29 @@ function Dashboard() {
   const applyHedging = () => {
     setUserData(prev => ({ ...prev, hedging: { isHedging: true, fixedPrice: 69.80 } }));
     alert("Başarılı! EEX Piyasası üzerinden CBAM riskiniz 69.80 EUR/Ton fiyatından sabitlendi (VCC Kontratı).");
+  };
+
+  const simulateErpConnection = (erpName) => {
+    setConnectedErpName(erpName);
+    setIsConnectingErp(true);
+    
+    setTimeout(() => {
+      setUserData(prev => ({
+        ...prev,
+        uretim: '1450',
+        elek: '45000',
+        gaz: '12000',
+        petrol: '2500'
+      }));
+      setAnalyzedData(null);
+      setIsConnectingErp(false);
+      setErpSuccessMsg(`${erpName} sisteminden Son Dönem üretim ve enerji tüketim verileriniz başarıyla çekildi!`);
+      setActiveMenu('data');
+      
+      setTimeout(() => {
+        setErpSuccessMsg('');
+      }, 8000);
+    }, 2500);
   };
 
   const generatePDF = async () => {
@@ -323,21 +350,29 @@ function Dashboard() {
         )}
 
         {activeMenu === 'integrations' && (
-          <div className="glass-panel">
+          <div className="glass-panel" style={{position: 'relative'}}>
+            {isConnectingErp && (
+              <div style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 17, 32, 0.8)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px', backdropFilter: 'blur(4px)'}}>
+                <Cpu size={48} color="#10b981" style={{animation: 'pulse 1.5s infinite'}} />
+                <h3 style={{color: 'white', marginTop: '16px', fontSize: '1.2rem'}}>{connectedErpName} Sunucularına Bağlanılıyor...</h3>
+                <p style={{color: '#94a3b8', marginTop: '8px'}}>Veriler senkronize ediliyor, lütfen bekleyin.</p>
+              </div>
+            )}
+            
             <div className="card-title"><Cpu size={24} color="var(--accent-primary)" /> <h3>Muhasebe ve ERP Entegrasyonları</h3></div>
             <p style={{marginBottom: '24px', color: 'var(--text-secondary)'}}>Faturalarınızı manuel girmek yerine kurumsal muhasebe sisteminize bağlanarak enerji tüketimlerinizi (Elektrik, Doğalgaz, Akaryakıt) otomatik çekin.</p>
             <div className="grid-3">
               <div style={{padding: '24px', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center'}}>
                 <h3 style={{marginBottom: '12px', color: '#0ea5e9'}}>Logo Yazılım</h3>
-                <button className="btn-secondary">Tek Tıkla Bağlan</button>
+                <button className="btn-secondary" onClick={() => simulateErpConnection('Logo Yazılım')}>Tek Tıkla Bağlan</button>
               </div>
               <div style={{padding: '24px', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center'}}>
                 <h3 style={{marginBottom: '12px', color: '#f59e0b'}}>SAP S/4HANA</h3>
-                <button className="btn-secondary">API Anahtarı Gir</button>
+                <button className="btn-secondary" onClick={() => simulateErpConnection('SAP S/4HANA')}>API Anahtarı Gir</button>
               </div>
               <div style={{padding: '24px', border: '1px solid var(--border-color)', borderRadius: '12px', textAlign: 'center'}}>
                 <h3 style={{marginBottom: '12px', color: '#10b981'}}>Mikro Yazılım</h3>
-                <button className="btn-secondary">Tek Tıkla Bağlan</button>
+                <button className="btn-secondary" onClick={() => simulateErpConnection('Mikro Yazılım')}>Tek Tıkla Bağlan</button>
               </div>
             </div>
           </div>
@@ -345,6 +380,13 @@ function Dashboard() {
 
         {activeMenu === 'data' && (
           <>
+            {erpSuccessMsg && (
+              <div style={{background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '16px', borderRadius: '12px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px'}}>
+                <CheckCircle2 size={24} />
+                <span style={{fontWeight: 600}}>{erpSuccessMsg}</span>
+              </div>
+            )}
+            
             <div className="glass-panel">
               <div className="card-title"><Factory size={24} color="var(--accent-primary)" /> <h3>Firma Bilgileri</h3></div>
               <div className="grid-2">
