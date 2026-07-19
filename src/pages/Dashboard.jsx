@@ -3,6 +3,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { Doughnut, Line } from 'react-chartjs-2';
 import { LayoutDashboard, Database, Wallet, ShieldCheck, FileText, Download, Factory, AlertTriangle, Info, Zap, Leaf, Droplets, TrendingUp, Cpu, MessageSquare, X, Send, LogOut, GraduationCap, Target, Globe, Video, PlayCircle, CheckCircle2, Network, Mail, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { dbService } from '../services/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import emailjs from '@emailjs/browser';
