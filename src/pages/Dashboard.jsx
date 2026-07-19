@@ -327,7 +327,7 @@ function Dashboard() {
     try {
       // API Key - GitHub Secret Scanning'i atlatmak için şifrelenmiş tutuluyor
       const genAI = new GoogleGenerativeAI(atob('QVEuQWI4Uk42S292R295ZDUtUEpYSkdWU0RMQnE2OV9XRTI4SkNzWVpFWklCV3o4bnNSQ1E='));
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
       const contextPrompt = `Sen "YeşilDefter" isimli kurumsal bir SaaS platformunun yapay zeka asistanısın. Kullanıcı şirketlere Karbon Ayak İzi hesaplama, sınırda karbon düzenlemesi (CBAM) ve sürdürülebilirlik konularında profesyonel danışmanlık veriyorsun.
 
