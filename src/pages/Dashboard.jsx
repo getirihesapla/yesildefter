@@ -867,7 +867,7 @@ Kullanıcının mesajı: "${currentInput}"`;
       <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 50 }}>
         {!chatOpen && (
           <button onClick={() => setChatOpen(true)} className="btn-primary" style={{borderRadius: '50%', width: '60px', height: '60px', boxShadow: '0 10px 25px rgba(16,185,129,0.4)'}}>
-            <MessageSquare size={28} />
+            <Leaf size={28} />
           </button>
         )}
         {chatOpen && (
@@ -875,7 +875,7 @@ Kullanıcının mesajı: "${currentInput}"`;
             <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(16,185,129,0.1)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
               <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
                 <div style={{width:'10px', height:'10px', borderRadius:'50%', backgroundColor:'var(--accent-primary)'}}></div>
-                <strong>Karbon Asistanı AI</strong>
+                <strong>YeşilDefter AI</strong>
               </div>
               <X size={20} style={{cursor:'pointer', color:'var(--text-secondary)'}} onClick={() => setChatOpen(false)} />
             </div>
