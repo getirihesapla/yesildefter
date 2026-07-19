@@ -37,6 +37,7 @@ function Dashboard() {
     unvan: '', sektor: 'Diğer',
     petrol: '', gaz: '', elek: '', uretim: '',
     ulasimKm: '', lojistikTonKm: '', atikTon: '',
+    gubre: '', geceleme: '',
     esg: { su: '', kadinOran: '', kalite: false },
     iso14001Number: '',
     lcaData: { raw: '', manu: '', log: '' },
@@ -96,6 +97,8 @@ function Dashboard() {
     const s3u = parseFloat(d.ulasimKm) || 0;
     const s3l = parseFloat(d.lojistikTonKm) || 0;
     const s3a = parseFloat(d.atikTon) || 0;
+    const numGubre = parseFloat(d.gubre) || 0;
+    const numGeceleme = parseFloat(d.geceleme) || 0;
 
     const petrolTon = (p * CBAM.petrol) / 1000;
     const gazTon = (g * CBAM.gaz) / 1000;
@@ -104,10 +107,20 @@ function Dashboard() {
     const ulasimTon = (s3u * CBAM.ulasim) / 1000;
     const lojistikTon = (s3l * CBAM.lojistik) / 1000;
     const atikTon = (s3a * CBAM.atik);
+    const gubreTon = (numGubre * 1.5);
+    const gecelemeTon = (numGeceleme * 0.05);
 
-    let brutEmisyon = petrolTon + gazTon + elekTon + uretimTon + ulasimTon + lojistikTon + atikTon;
+    let scope1 = petrolTon + gazTon + uretimTon;
+    if (d.sektor === 'Tarım') scope1 += gubreTon;
     
-    const offsetIrec = Math.min(elekTon, d.wallet.irec);
+    let scope2 = elekTon;
+    
+    let scope3 = ulasimTon + lojistikTon + atikTon;
+    if (d.sektor === 'Turizm' || d.sektor === 'Hizmet') scope3 += gecelemeTon;
+
+    let brutEmisyon = scope1 + scope2 + scope3;
+    
+    const offsetIrec = Math.min(scope2, d.wallet.irec);
     const offsetCarbon = d.wallet.carbonCredit;
     let netEmisyon = Math.max(0, brutEmisyon - offsetIrec - offsetCarbon);
 
@@ -121,7 +134,6 @@ function Dashboard() {
     
     if (d.esg.kalite) {
       esgScore += 20;
-      // ISO 14001 %10 İndirim / Muafiyet
       isoDiscount = netOdenecek * 0.10;
       netOdenecek = netOdenecek - isoDiscount;
     }
@@ -129,7 +141,8 @@ function Dashboard() {
     if (parseFloat(d.esg.su) < 10000 && parseFloat(d.esg.su) > 0) esgScore += 15;
 
     setAnalyzedData({
-      petrolTon, gazTon, elekTon, uretimTon, ulasimTon, lojistikTon, atikTon,
+      petrolTon, gazTon, elekTon, uretimTon, ulasimTon, lojistikTon, atikTon, gubreTon, gecelemeTon,
+      scope1, scope2, scope3,
       brutEmisyon, netEmisyon, offsetIrec, offsetCarbon,
       cbamMaliyet, trEtsMahsup, netOdenecek, appliedPrice, esgScore, isoDiscount
     });
@@ -236,13 +249,12 @@ function Dashboard() {
       startY: 62,
       head: [['Emisyon Kaynağı', 'Ton CO2e']],
       body: [
-        ['Akaryakıt (Scope 1)', analyzedData.petrolTon.toFixed(2)],
-        ['Doğalgaz (Scope 1)', analyzedData.gazTon.toFixed(2)],
-        ['Üretim (Scope 1)', analyzedData.uretimTon.toFixed(2)],
-        ['Elektrik (Scope 2)', analyzedData.elekTon.toFixed(2)],
-        ['Lojistik & Diğer (Scope 3)', (analyzedData.lojistikTon + analyzedData.ulasimTon + analyzedData.atikTon).toFixed(2)],
+        ['Kapsam 1 (Doğrudan Emisyonlar)', analyzedData.scope1.toFixed(2)],
+        ['Kapsam 2 (Dolaylı Enerji Emisyonları)', analyzedData.scope2.toFixed(2)],
+        ['Kapsam 3 (Değer Zinciri Emisyonları)', analyzedData.scope3.toFixed(2)],
         ['BRÜT TOPLAM', analyzedData.brutEmisyon.toFixed(2)],
-        ['Düşülen I-REC / Karbon Kredisi', `-${(analyzedData.offsetIrec + analyzedData.offsetCarbon).toFixed(2)}`],
+        ['Düşülen I-REC (Kapsam 2 Mahsubu)', `-${analyzedData.offsetIrec.toFixed(2)}`],
+        ['Düşülen Karbon Kredisi', `-${analyzedData.offsetCarbon.toFixed(2)}`],
         ['NET EMİSYON', analyzedData.netEmisyon.toFixed(2)]
       ],
       headStyles: { fillColor: [16, 185, 129], font: "Roboto" },
@@ -468,12 +480,16 @@ Kullanıcının mesajı: "${currentInput}"`;
                 <div className="form-group">
                   <label>Sektör</label>
                   <select className="premium-input" value={userData.sektor} onChange={e => handleInput(null, 'sektor', e.target.value)}>
-                    <option value="Diğer">Diğer (Hizmet, Lojistik vb.)</option>
-                    <option value="Demir-Çelik">Demir-Çelik (Yüksek Risk)</option>
-                    <option value="Çimento">Çimento (Yüksek Risk)</option>
-                    <option value="Alüminyum">Alüminyum (Yüksek Risk)</option>
-                    <option value="Gübre">Gübre (Yüksek Risk)</option>
-                    <option value="Elektrik">Elektrik (Yüksek Risk)</option>
+                    <option value="Diğer">Diğer (Üretim/Sanayi vb.)</option>
+                    <option value="Demir-Çelik">Demir-Çelik (CBAM Yüksek Risk)</option>
+                    <option value="Çimento">Çimento (CBAM Yüksek Risk)</option>
+                    <option value="Alüminyum">Alüminyum (CBAM Yüksek Risk)</option>
+                    <option value="Gübre">Gübre (CBAM Yüksek Risk)</option>
+                    <option value="Elektrik">Elektrik (CBAM Yüksek Risk)</option>
+                    <option value="Lojistik">Lojistik ve Taşımacılık</option>
+                    <option value="Tarım">Tarım ve Hayvancılık</option>
+                    <option value="Turizm">Turizm ve Konaklama</option>
+                    <option value="Hizmet">Hizmet ve Ofis</option>
                   </select>
                 </div>
               </div>
@@ -497,10 +513,38 @@ Kullanıcının mesajı: "${currentInput}"`;
               </div>
               
               <div className="grid-2">
-                <div className="form-group"><label>Üretim (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.uretim} onChange={e => handleInput(null, 'uretim', e.target.value)} /></div>
-                <div className="form-group"><label>Elektrik (kWh)</label><input type="number" className="premium-input" placeholder="0" value={userData.elek} onChange={e => handleInput(null, 'elek', e.target.value)} /></div>
-                <div className="form-group"><label>Doğalgaz (m³)</label><input type="number" className="premium-input" placeholder="0" value={userData.gaz} onChange={e => handleInput(null, 'gaz', e.target.value)} /></div>
-                <div className="form-group"><label>Akaryakıt (L)</label><input type="number" className="premium-input" placeholder="0" value={userData.petrol} onChange={e => handleInput(null, 'petrol', e.target.value)} /></div>
+                {['Demir-Çelik', 'Çimento', 'Alüminyum', 'Gübre', 'Elektrik', 'Diğer'].includes(userData.sektor) && (
+                  <>
+                    <div className="form-group"><label>Üretim Miktarı (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.uretim} onChange={e => handleInput(null, 'uretim', e.target.value)} /></div>
+                    <div className="form-group"><label>Elektrik Tüketimi (kWh)</label><input type="number" className="premium-input" placeholder="0" value={userData.elek} onChange={e => handleInput(null, 'elek', e.target.value)} /></div>
+                    <div className="form-group"><label>Doğalgaz Tüketimi (m³)</label><input type="number" className="premium-input" placeholder="0" value={userData.gaz} onChange={e => handleInput(null, 'gaz', e.target.value)} /></div>
+                    <div className="form-group"><label>Akaryakıt / Jeneratör (L)</label><input type="number" className="premium-input" placeholder="0" value={userData.petrol} onChange={e => handleInput(null, 'petrol', e.target.value)} /></div>
+                  </>
+                )}
+                {userData.sektor === 'Lojistik' && (
+                  <>
+                    <div className="form-group"><label>Toplam Araç Kilometresi (km)</label><input type="number" className="premium-input" placeholder="0" value={userData.ulasimKm} onChange={e => handleInput(null, 'ulasimKm', e.target.value)} /></div>
+                    <div className="form-group"><label>Filo Akaryakıt Tüketimi (L)</label><input type="number" className="premium-input" placeholder="0" value={userData.petrol} onChange={e => handleInput(null, 'petrol', e.target.value)} /></div>
+                    <div className="form-group"><label>Depo/Tesis Elektrik (kWh)</label><input type="number" className="premium-input" placeholder="0" value={userData.elek} onChange={e => handleInput(null, 'elek', e.target.value)} /></div>
+                    <div className="form-group"><label>Taşınan Yük (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.uretim} onChange={e => handleInput(null, 'uretim', e.target.value)} /></div>
+                  </>
+                )}
+                {userData.sektor === 'Tarım' && (
+                  <>
+                    <div className="form-group"><label>Kimyasal Gübre Kullanımı (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.gubre} onChange={e => handleInput(null, 'gubre', e.target.value)} /></div>
+                    <div className="form-group"><label>Traktör/Makineler Yakıtı (L)</label><input type="number" className="premium-input" placeholder="0" value={userData.petrol} onChange={e => handleInput(null, 'petrol', e.target.value)} /></div>
+                    <div className="form-group"><label>Sulama Elektriği (kWh)</label><input type="number" className="premium-input" placeholder="0" value={userData.elek} onChange={e => handleInput(null, 'elek', e.target.value)} /></div>
+                    <div className="form-group"><label>Hasat / Mahsul (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.uretim} onChange={e => handleInput(null, 'uretim', e.target.value)} /></div>
+                  </>
+                )}
+                {(userData.sektor === 'Turizm' || userData.sektor === 'Hizmet') && (
+                  <>
+                    <div className="form-group"><label>Yıllık Geceleme / Ziyaretçi Sayısı</label><input type="number" className="premium-input" placeholder="0" value={userData.geceleme} onChange={e => handleInput(null, 'geceleme', e.target.value)} /></div>
+                    <div className="form-group"><label>Tesis Elektrik Tüketimi (kWh)</label><input type="number" className="premium-input" placeholder="0" value={userData.elek} onChange={e => handleInput(null, 'elek', e.target.value)} /></div>
+                    <div className="form-group"><label>Isınma / Mutfak Doğalgaz (m³)</label><input type="number" className="premium-input" placeholder="0" value={userData.gaz} onChange={e => handleInput(null, 'gaz', e.target.value)} /></div>
+                    <div className="form-group"><label>Tesis Akaryakıt / Jeneratör (L)</label><input type="number" className="premium-input" placeholder="0" value={userData.petrol} onChange={e => handleInput(null, 'petrol', e.target.value)} /></div>
+                  </>
+                )}
               </div>
 
               <div className="card-title" style={{marginTop: '32px'}}><Droplets size={24} color="var(--accent-primary)" /> <h3>TSRS & ESG Parametreleri</h3></div>
@@ -664,9 +708,22 @@ Kullanıcının mesajı: "${currentInput}"`;
                     <div className="stat-label">Net Emisyon (Cüzdan Düşülmüş)</div>
                     <div className="stat-value">{analyzedData.netEmisyon.toFixed(1)} <span style={{fontSize:'1rem'}}>tCO2e</span></div>
                   </div>
-                  <div className="stat-box">
-                    <div className="stat-label">TSRS ESG Skoru</div>
-                    <div className="stat-value">{analyzedData.esgScore} <span style={{fontSize:'1rem'}}>/ 100</span></div>
+                  <div className="stat-box" style={{background: 'rgba(16, 185, 129, 0.1)', borderColor: '#10b981'}}>
+                    <div className="stat-label" style={{color: '#10b981'}}>ESG Sürdürülebilirlik Skoru</div>
+                    <div className="stat-value" style={{color: '#10b981'}}>{analyzedData.esgScore} <span style={{fontSize:'1rem'}}>/ 100</span></div>
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{marginBottom: '24px', background: 'rgba(255,255,255,0.02)'}}>
+                  <h4 style={{marginBottom: '16px'}}>ISO 14064-1 Emisyon Kırılımı</h4>
+                  <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '8px'}}>
+                    <span>Kapsam 1 (Doğrudan Tesis Emisyonları)</span><strong>{analyzedData.scope1.toFixed(1)} tCO2e</strong>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '8px'}}>
+                    <span>Kapsam 2 (Dolaylı Elektrik Emisyonları)</span><strong>{analyzedData.scope2.toFixed(1)} tCO2e</strong>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px'}}>
+                    <span>Kapsam 3 (Değer Zinciri ve Diğer)</span><strong>{analyzedData.scope3.toFixed(1)} tCO2e</strong>
                   </div>
                 </div>
 
