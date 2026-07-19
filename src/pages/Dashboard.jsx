@@ -352,10 +352,7 @@ Kullanıcının mesajı: "${currentInput}"`;
       setChatMessages(prev => [...prev, {role: 'ai', text: text}]);
     } catch (error) {
       console.error("Gemini AI Error:", error);
-      let errorMsg = "Üzgünüm, şu an sunucularıma bağlanamıyorum. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.";
-      if(error.message && error.message.includes('API key')) {
-        errorMsg = "Sistemdeki API anahtarı geçersiz. Lütfen doğru anahtarı girdiğinizden emin olun.";
-      }
+      let errorMsg = "Hata oluştu: " + (error?.message || JSON.stringify(error));
       setChatMessages(prev => [...prev, {role: 'ai', text: errorMsg}]);
     } finally {
       setIsAiTyping(false);
