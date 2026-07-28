@@ -744,7 +744,9 @@ Kullanıcının mesajı: "${currentInput}"`;
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', padding: '2px' }}>
               <input 
-                type="number" 
+                type="text" 
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="Geçmiş Yıl Ara..." 
                 value={headerSearchYear}
                 onChange={e => setHeaderSearchYear(e.target.value)}
