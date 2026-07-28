@@ -70,6 +70,9 @@ function Dashboard() {
   const [comparisonResult, setComparisonResult] = useState(null);
   const [comparisonError, setComparisonError] = useState('');
 
+  const [headerSearchYear, setHeaderSearchYear] = useState('');
+  const [headerSearchError, setHeaderSearchError] = useState('');
+
   const [gapAnswers, setGapAnswers] = useState({});
   const gapQuestions = [
     { id: 'q1', text: 'Karbon ayak izinizi (Kapsam 1 ve 2) düzenli olarak hesaplıyor musunuz?', weight: 15 },
@@ -163,6 +166,25 @@ function Dashboard() {
   };
 
   const isHighRiskSector = ['Demir-Çelik', 'Çimento', 'Alüminyum', 'Gübre', 'Hidrojen', 'Elektrik'].includes(userData.sektor);
+
+  const handleGlobalYearSearch = () => {
+    setHeaderSearchError('');
+    if (!headerSearchYear) return;
+    
+    if (allYearsData[headerSearchYear]) {
+      setReportingYear(headerSearchYear);
+      setHeaderSearchYear('');
+    } else {
+      const availableYears = Object.keys(allYearsData);
+      if (availableYears.length > 0) {
+        const oldestYear = Math.min(...availableYears.map(Number));
+        setHeaderSearchError(`${headerSearchYear} yılına ait veri bulunamadı. Sistemdeki en eski kaydınız ${oldestYear} yılına aittir.`);
+      } else {
+        setHeaderSearchError(`${headerSearchYear} yılına ait veri bulunamadı. Henüz geçmiş yıl kaydınız yok.`);
+      }
+      setTimeout(() => setHeaderSearchError(''), 5000);
+    }
+  };
 
   const handleCompareYears = () => {
     setComparisonError('');
@@ -713,6 +735,30 @@ Kullanıcının mesajı: "${currentInput}"`;
           </h1>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {headerSearchError && (
+              <div style={{ position: 'absolute', top: '70px', right: '20px', background: 'rgba(239, 68, 68, 0.95)', color: '#fff', padding: '12px 16px', borderRadius: '8px', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={18} />
+                {headerSearchError}
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', padding: '2px' }}>
+              <input 
+                type="number" 
+                placeholder="Geçmiş Yıl Ara..." 
+                value={headerSearchYear}
+                onChange={e => setHeaderSearchYear(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleGlobalYearSearch()}
+                style={{ background: 'transparent', border: 'none', color: '#f8fafc', padding: '6px 12px', width: '130px', outline: 'none' }}
+              />
+              <button 
+                onClick={handleGlobalYearSearch}
+                style={{ background: 'var(--accent-secondary)', border: 'none', borderRadius: '6px', color: '#fff', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Search size={16} />
+              </button>
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <select 
                 className="premium-input" 
@@ -720,8 +766,14 @@ Kullanıcının mesajı: "${currentInput}"`;
                 value={reportingYear} 
                 onChange={(e) => setReportingYear(e.target.value)}
               >
-                {Array.from({length: 13}, (_, i) => 2018 + i).map(year => (
-                  <option key={year} value={year} style={{color: '#0f172a'}}>Yıl: {year}</option>
+                {Array.from(new Set([
+                  currentYear, 
+                  currentYear - 1, 
+                  currentYear - 2, 
+                  currentYear - 3, 
+                  parseInt(reportingYear)
+                ])).sort((a,b) => b-a).map(year => (
+                  <option key={`header-${year}`} value={year} style={{color: '#0f172a'}}>Yıl: {year}</option>
                 ))}
               </select>
             </div>
