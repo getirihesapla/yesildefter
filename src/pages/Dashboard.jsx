@@ -476,7 +476,7 @@ function Dashboard() {
     ];
     
     const facilityRows = facilities.map(f => [
-      f.id, f.unvan || 'İsimsiz Tesis', f.sektor,
+      f.id, f.unvan || 'İsimsiz Şube', f.sektor,
       f.gaz || 0, f.petrol || 0, f.elek || 0,
       f.uretim || 0, f.ulasimKm || 0, f.lojistikTonKm || 0, f.atikTon || 0,
       f.isSeyahatiKm || 0, f.personelUlasimKm || 0, f.satinAlinanHizmetler || 0,
@@ -846,13 +846,13 @@ Kullanıcının mesajı: "${currentInput}"`;
                 </div>
                 <button className="premium-btn primary" onClick={() => {
                   const newId = Date.now();
-                  const newFac = { ...defaultFacility, id: newId, unvan: 'Yeni Tesis' };
+                  const newFac = { ...defaultFacility, id: newId, unvan: 'Yeni Şube' };
                   const syncedFacilities = facilities.map(f => f.id === activeFacilityId ? { ...userData, id: activeFacilityId } : f);
                   setFacilities([...syncedFacilities, newFac]);
                   setActiveFacilityId(newId);
                   setUserData(newFac);
                 }} style={{padding: '8px 16px', fontSize: '14px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'white', cursor: 'pointer'}}>
-                  + Yeni Tesis Ekle
+                  + Yeni Şube Ekle
                 </button>
               </div>
               <div style={{display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px'}}>
@@ -885,7 +885,7 @@ Kullanıcının mesajı: "${currentInput}"`;
             </div>
 
             <div className="glass-panel">
-              <div className="card-title"><Factory size={24} color="var(--accent-primary)" /> <h3>Tesis Bilgileri</h3></div>
+              <div className="card-title"><Factory size={24} color="var(--accent-primary)" /> <h3>Şube Bilgileri</h3></div>
               <div className="grid-2">
                 <div className="form-group">
                   <label>Firma Ünvanı</label>
@@ -1017,6 +1017,19 @@ Kullanıcının mesajı: "${currentInput}"`;
                   setUserData({unvan: '', sektor: 'Diğer', petrol: '', gaz: '', elek: '', uretim: '', ulasimKm: '', lojistikTonKm: '', atikTon: '', esg: { su: '', kadinOran: '', kalite: false }, wallet: { irec: 0, carbonCredit: 0 }, hedging: { isHedging: false, fixedPrice: 0 }});
                   setAnalyzedData(null);
                 }}>Verileri Sıfırla</button>
+                {facilities.length > 1 && (
+                  <button className="btn-secondary" style={{borderColor: 'rgba(239, 68, 68, 0.5)', color: '#ef4444', background: 'rgba(239,68,68,0.05)'}} onClick={() => {
+                    if (window.confirm("Bu şubeyi silmek istediğinize emin misiniz? (Bu işlem kaydedilmemiş verileri yok edecektir)")) {
+                      const remainingFacilities = facilities.filter(f => f.id !== activeFacilityId);
+                      setFacilities(remainingFacilities);
+                      setActiveFacilityId(remainingFacilities[0].id);
+                      setUserData(remainingFacilities[0]);
+                      setAnalyzedData(null);
+                    }
+                  }}>
+                    <X size={16} /> Şubeyi Kapat / Sil
+                  </button>
+                )}
               </div>
             </div>
 
