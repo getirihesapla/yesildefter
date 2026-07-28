@@ -14,7 +14,7 @@ import '../App.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement);
 
-const CBAM = { petrol: 2.68, gaz: 2.02, elek: 0.43, uretim: 1.50, ulasim: 0.15, lojistik: 0.10, atik: 0.50 };
+const CBAM = { petrol: 2.68, gaz: 2.02, elek: 0.43, uretim: 1.50, ulasim: 0.15, lojistik: 0.10, atik: 0.50, isSeyahati: 0.20, personelUlasim: 0.12, satinAlinanHizmetler: 0.05 };
 const CBAM_PRICE_EUR = 75.36; 
 const TR_ETS_PRICE_EUR = 15.00; 
 
@@ -33,17 +33,23 @@ function Dashboard() {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [chatInput, setChatInput] = useState('');
 
-  const [userData, setUserData] = useState({
+  const defaultFacility = {
+    id: 1,
     unvan: '', sektor: 'Diğer',
     petrol: '', gaz: '', elek: '', uretim: '',
     ulasimKm: '', lojistikTonKm: '', atikTon: '',
+    isSeyahatiKm: '', personelUlasimKm: '', satinAlinanHizmetler: '',
     gubre: '', geceleme: '',
     esg: { su: '', kadinOran: '', kalite: false },
     iso14001Number: '',
     lcaData: { raw: '', manu: '', log: '' },
     wallet: { irec: 0, carbonCredit: 0 },
     hedging: { isHedging: false, fixedPrice: 0 }
-  });
+  };
+
+  const [facilities, setFacilities] = useState([defaultFacility]);
+  const [activeFacilityId, setActiveFacilityId] = useState(1);
+  const [userData, setUserData] = useState(defaultFacility);
 
   const [analyzedData, setAnalyzedData] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,27 +62,93 @@ function Dashboard() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteStatus, setInviteStatus] = useState('idle');
 
-  // Load user data on mount
+  const currentYear = new Date().getFullYear();
+  const [reportingYear, setReportingYear] = useState(currentYear.toString());
+  const [allYearsData, setAllYearsData] = useState({});
+
+  const [gapAnswers, setGapAnswers] = useState({});
+  const gapQuestions = [
+    { id: 'q1', text: 'Karbon ayak izinizi (Kapsam 1 ve 2) düzenli olarak hesaplıyor musunuz?', weight: 15 },
+    { id: 'q2', text: 'Kapsam 3 (Tedarik zinciri, lojistik vb.) emisyonlarınızı takip ediyor musunuz?', weight: 10 },
+    { id: 'q3', text: 'ISO 14001 Çevre Yönetim Sistemi sertifikanız var mı?', weight: 15 },
+    { id: 'q4', text: 'ISO 14064 Kurumsal Karbon Ayak İzi doğrulama belgeniz var mı?', weight: 20 },
+    { id: 'q5', text: 'Sürdürülebilirlik (ESG) raporu yayınlıyor musunuz?', weight: 15 },
+    { id: 'q6', text: 'Enerji tüketiminizin en az %20\'sini yenilenebilir kaynaklardan (I-REC vb.) mı sağlıyorsunuz?', weight: 10 },
+    { id: 'q7', text: 'Çalışanlarınıza düzenli çevre ve sürdürülebilirlik eğitimi veriyor musunuz?', weight: 5 },
+    { id: 'q8', text: 'Tedarikçilerinizi seçerken çevre kriterlerini göz önünde bulunduruyor musunuz?', weight: 10 }
+  ];
+
+  const calculateGapScore = () => {
+    let score = 0;
+    gapQuestions.forEach(q => {
+      if (gapAnswers[q.id] === 'yes') score += q.weight;
+    });
+    return score;
+  };
+
   useEffect(() => {
     if (currentUser?.id) {
       dbService.getUserData(currentUser.id).then(data => {
-        if (data?.userData) setUserData(data.userData);
-        if (data?.analyzedData) setAnalyzedData(data.analyzedData);
+        if (data) {
+          if (data.years && data.years[reportingYear]) {
+            // Load specific year
+            const yearData = data.years[reportingYear];
+            if (yearData.facilities) setFacilities(yearData.facilities);
+            if (yearData.facilities && yearData.facilities.length > 0) {
+              setUserData(yearData.facilities[0]);
+              setActiveFacilityId(yearData.facilities[0].id);
+            }
+            if (yearData.gapAnswers) setGapAnswers(yearData.gapAnswers);
+            if (yearData.analyzedData) setAnalyzedData(yearData.analyzedData);
+          } else if (data.facilities && Object.keys(data.years || {}).length === 0) {
+            // Legacy load (no years object yet)
+            setFacilities(data.facilities);
+            if (data.facilities.length > 0) {
+              setUserData(data.facilities[0]);
+              setActiveFacilityId(data.facilities[0].id);
+            }
+            if (data.gapAnswers) setGapAnswers(data.gapAnswers);
+            if (data.analyzedData) setAnalyzedData(data.analyzedData);
+          } else {
+             // New year selected but no data yet, reset fields
+             setFacilities([defaultFacility]);
+             setUserData(defaultFacility);
+             setActiveFacilityId(defaultFacility.id);
+             setGapAnswers({});
+             setAnalyzedData(null);
+          }
+          if (data.years) setAllYearsData(data.years);
+        }
       });
     }
-  }, [currentUser]);
+  }, [currentUser, reportingYear]);
 
   // Auto-save user data on change
   useEffect(() => {
     if (currentUser?.id) {
       setIsSaving(true);
       const timer = setTimeout(() => {
-        dbService.saveUserData(currentUser.id, { userData, analyzedData })
-          .then(() => setIsSaving(false));
+        setFacilities(prev => {
+          const syncedFacilities = prev.map(f => f.id === activeFacilityId ? { ...userData, id: activeFacilityId } : f);
+          const yearPayload = {
+            facilities: syncedFacilities,
+            gapAnswers,
+            analyzedData
+          };
+          
+          dbService.saveUserData(currentUser.id, { 
+            [`years.${reportingYear}`]: yearPayload,
+            facilities: syncedFacilities,
+            gapAnswers,
+            analyzedData
+          }).then(() => setIsSaving(false));
+          
+          return syncedFacilities;
+        });
       }, 1000); // 1s debounce
       return () => clearTimeout(timer);
     }
-  }, [userData, analyzedData, currentUser]);
+  }, [userData, analyzedData, gapAnswers, currentUser, activeFacilityId, reportingYear]);
 
   const handleInput = (category, field, value) => {
     setUserData(prev => ({
@@ -97,6 +169,9 @@ function Dashboard() {
     const s3u = parseFloat(d.ulasimKm) || 0;
     const s3l = parseFloat(d.lojistikTonKm) || 0;
     const s3a = parseFloat(d.atikTon) || 0;
+    const s3is = parseFloat(d.isSeyahatiKm) || 0;
+    const s3pu = parseFloat(d.personelUlasimKm) || 0;
+    const s3sh = parseFloat(d.satinAlinanHizmetler) || 0;
     const numGubre = parseFloat(d.gubre) || 0;
     const numGeceleme = parseFloat(d.geceleme) || 0;
 
@@ -106,7 +181,10 @@ function Dashboard() {
     const uretimTon = (u * CBAM.uretim);
     const ulasimTon = (s3u * CBAM.ulasim) / 1000;
     const lojistikTon = (s3l * CBAM.lojistik) / 1000;
-    const atikTon = (s3a * CBAM.atik);
+    const atikTonC = (s3a * CBAM.atik);
+    const isSeyahatiTon = (s3is * CBAM.isSeyahati) / 1000;
+    const personelUlasimTon = (s3pu * CBAM.personelUlasim) / 1000;
+    const satinAlinanHizmetlerTon = (s3sh * CBAM.satinAlinanHizmetler) / 1000;
     const gubreTon = (numGubre * 1.5);
     const gecelemeTon = (numGeceleme * 0.05);
 
@@ -115,7 +193,7 @@ function Dashboard() {
     
     let scope2 = elekTon;
     
-    let scope3 = ulasimTon + lojistikTon + atikTon;
+    let scope3 = ulasimTon + lojistikTon + atikTonC + isSeyahatiTon + personelUlasimTon + satinAlinanHizmetlerTon;
     if (d.sektor === 'Turizm' || d.sektor === 'Hizmet') scope3 += gecelemeTon;
 
     let brutEmisyon = scope1 + scope2 + scope3;
@@ -141,10 +219,95 @@ function Dashboard() {
     if (parseFloat(d.esg.su) < 10000 && parseFloat(d.esg.su) > 0) esgScore += 15;
 
     setAnalyzedData({
-      petrolTon, gazTon, elekTon, uretimTon, ulasimTon, lojistikTon, atikTon, gubreTon, gecelemeTon,
+      petrolTon, gazTon, elekTon, uretimTon, ulasimTon, lojistikTon, atikTon: atikTonC, gubreTon, gecelemeTon,
       scope1, scope2, scope3,
       brutEmisyon, netEmisyon, offsetIrec, offsetCarbon,
-      cbamMaliyet, trEtsMahsup, netOdenecek, appliedPrice, esgScore, isoDiscount
+      cbamMaliyet, trEtsMahsup, netOdenecek, appliedPrice, esgScore, isoDiscount,
+      isConsolidated: false
+    });
+    
+    setActiveMenu('report');
+  };
+
+  const handleConsolidate = () => {
+    // Force sync the current edited facility
+    const syncedFacilities = facilities.map(f => f.id === activeFacilityId ? { ...userData, id: activeFacilityId } : f);
+    setFacilities(syncedFacilities);
+
+    let totPetrolTon=0, totGazTon=0, totElekTon=0, totUretimTon=0, totUlasimTon=0, totLojistikTon=0, totAtikTon=0, totGubreTon=0, totGecelemeTon=0;
+    let totScope1=0, totScope2=0, totScope3=0;
+
+    syncedFacilities.forEach(d => {
+      const p = parseFloat(d.petrol) || 0;
+      const g = parseFloat(d.gaz) || 0;
+      const e = parseFloat(d.elek) || 0;
+      const u = parseFloat(d.uretim) || 0;
+      const s3u = parseFloat(d.ulasimKm) || 0;
+      const s3l = parseFloat(d.lojistikTonKm) || 0;
+      const s3a = parseFloat(d.atikTon) || 0;
+      const s3is = parseFloat(d.isSeyahatiKm) || 0;
+      const s3pu = parseFloat(d.personelUlasimKm) || 0;
+      const s3sh = parseFloat(d.satinAlinanHizmetler) || 0;
+      const numGubre = parseFloat(d.gubre) || 0;
+      const numGeceleme = parseFloat(d.geceleme) || 0;
+
+      const pt = (p * CBAM.petrol) / 1000;
+      const gt = (g * CBAM.gaz) / 1000;
+      const et = (e * CBAM.elek) / 1000;
+      const ut = (u * CBAM.uretim);
+      const uls = (s3u * CBAM.ulasim) / 1000;
+      const loj = (s3l * CBAM.lojistik) / 1000;
+      const atk = (s3a * CBAM.atik);
+      const isSey = (s3is * CBAM.isSeyahati) / 1000;
+      const perUls = (s3pu * CBAM.personelUlasim) / 1000;
+      const sah = (s3sh * CBAM.satinAlinanHizmetler) / 1000;
+      const gub = (numGubre * 1.5);
+      const gec = (numGeceleme * 0.05);
+
+      totPetrolTon+=pt; totGazTon+=gt; totElekTon+=et; totUretimTon+=ut; totUlasimTon+=uls; totLojistikTon+=loj; totAtikTon+=atk; totGubreTon+=gub; totGecelemeTon+=gec;
+
+      let s1 = pt + gt + ut;
+      if (d.sektor === 'Tarım') s1 += gub;
+      totScope1 += s1;
+      
+      let s2 = et;
+      totScope2 += s2;
+      
+      let s3 = uls + loj + atk + isSey + perUls + sah;
+      if (d.sektor === 'Turizm' || d.sektor === 'Hizmet') s3 += gec;
+      totScope3 += s3;
+    });
+
+    let brutEmisyon = totScope1 + totScope2 + totScope3;
+    
+    // Primary facility handles hedging and esg parameters in consolidated mode
+    const primary = syncedFacilities[0];
+    const offsetIrec = Math.min(totScope2, primary.wallet.irec);
+    const offsetCarbon = primary.wallet.carbonCredit;
+    let netEmisyon = Math.max(0, brutEmisyon - offsetIrec - offsetCarbon);
+
+    const appliedPrice = primary.hedging.isHedging ? primary.hedging.fixedPrice : CBAM_PRICE_EUR;
+    let cbamMaliyet = netEmisyon * appliedPrice;
+    let trEtsMahsup = netEmisyon * TR_ETS_PRICE_EUR;
+    let netOdenecek = Math.max(0, cbamMaliyet - trEtsMahsup);
+
+    let esgScore = 50;
+    let isoDiscount = 0;
+    
+    if (primary.esg.kalite) {
+      esgScore += 20;
+      isoDiscount = netOdenecek * 0.10;
+      netOdenecek = netOdenecek - isoDiscount;
+    }
+    if (parseFloat(primary.esg.kadinOran) > 30) esgScore += 15;
+    if (parseFloat(primary.esg.su) < 10000 && parseFloat(primary.esg.su) > 0) esgScore += 15;
+
+    setAnalyzedData({
+      petrolTon: totPetrolTon, gazTon: totGazTon, elekTon: totElekTon, uretimTon: totUretimTon, ulasimTon: totUlasimTon, lojistikTon: totLojistikTon, atikTon: totAtikTon, gubreTon: totGubreTon, gecelemeTon: totGecelemeTon,
+      scope1: totScope1, scope2: totScope2, scope3: totScope3,
+      brutEmisyon, netEmisyon, offsetIrec, offsetCarbon,
+      cbamMaliyet, trEtsMahsup, netOdenecek, appliedPrice, esgScore, isoDiscount,
+      isConsolidated: true
     });
     
     setActiveMenu('report');
@@ -214,6 +377,102 @@ function Dashboard() {
       setInviteStatus('error');
       setTimeout(() => setInviteStatus('idle'), 10000);
     }
+  };
+
+  const generateExcel = () => {
+    if (!analyzedData) return;
+    
+    const wb = XLSX.utils.book_new();
+    
+    const summaryData = [
+      ["Firma Ünvanı", userData.unvan || ''],
+      ["Sektör", userData.sektor || ''],
+      ["Raporlama Yılı", reportingYear || ''],
+      ["", ""],
+      ["Emisyon Özeti", "Değer (tCO2e)"],
+      ["Kapsam 1 (Doğrudan)", analyzedData.scope1.toFixed(2)],
+      ["Kapsam 2 (Dolaylı - Elektrik)", analyzedData.scope2.toFixed(2)],
+      ["Kapsam 3 (Değer Zinciri)", analyzedData.scope3.toFixed(2)],
+      ["Brüt Toplam Emisyon", analyzedData.brutEmisyon.toFixed(2)],
+      ["Net Emisyon (Offset Sonrası)", analyzedData.netEmisyon.toFixed(2)],
+      ["", ""],
+      ["Finansal Özet", "Değer"],
+      ["Tahmini CBAM Maliyeti (EUR)", analyzedData.cbamMaliyet.toFixed(2)],
+      ["Yurtiçi (ETS) Mahsuplaşma (EUR)", analyzedData.trEtsMahsup.toFixed(2)],
+      ["Gümrükte Net Ödenecek (EUR)", analyzedData.netOdenecek.toFixed(2)]
+    ];
+    
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Analiz Özeti");
+
+    const facilityHeaders = [
+      "Tesis ID", "Tesis Adı", "Sektör", "Doğalgaz (m³)", "Akaryakıt (L)", "Elektrik (kWh)", 
+      "Üretim (Ton)", "Araç KM", "Lojistik (Ton.km)", "Atık (Ton)", "İş Seyahati (km)",
+      "Personel Ulaşımı (km)", "Satın Alınan Hizmet (Birim)", "Su Tüketimi (m³)", "Kadın Çalışan Oranı (%)", "ISO 14001"
+    ];
+    
+    const facilityRows = facilities.map(f => [
+      f.id, f.unvan || 'İsimsiz Tesis', f.sektor,
+      f.gaz || 0, f.petrol || 0, f.elek || 0,
+      f.uretim || 0, f.ulasimKm || 0, f.lojistikTonKm || 0, f.atikTon || 0,
+      f.isSeyahatiKm || 0, f.personelUlasimKm || 0, f.satinAlinanHizmetler || 0,
+      f.esg?.su || 0, f.esg?.kadinOran || 0, f.esg?.kalite ? 'Var' : 'Yok'
+    ]);
+    
+    const wsFacilities = XLSX.utils.aoa_to_sheet([facilityHeaders, ...facilityRows]);
+    XLSX.utils.book_append_sheet(wb, wsFacilities, "Tesis Ham Verileri");
+    
+    XLSX.writeFile(wb, `YesilDefter_Rapor_${reportingYear}_${userData.unvan || 'Firma'}.xlsx`);
+  };
+
+  const generateXML = () => {
+    if (!analyzedData) return;
+    const date = new Date().toISOString().split('T')[0];
+    
+    // Create a mock CBAM Transitional Registry XML structure
+    const xmlString = `<?xml version="1.0" encoding="UTF-8"?>
+<CBAMDeclaration xmlns="urn:eu:taxud:cbam:v1">
+    <Declarant>
+        <Name>${userData.unvan || 'Firma Adı'}</Name>
+        <Sector>${userData.sektor}</Sector>
+        <EORI>TR123456789</EORI>
+    </Declarant>
+    <ReportingPeriod>
+        <StartDate>${date.substring(0,4)}-01-01</StartDate>
+        <EndDate>${date}</EndDate>
+    </ReportingPeriod>
+    <Emissions>
+        <Scope1>
+            <Value>${analyzedData.scope1.toFixed(2)}</Value>
+            <Unit>tCO2e</Unit>
+        </Scope1>
+        <Scope2>
+            <Value>${analyzedData.scope2.toFixed(2)}</Value>
+            <Unit>tCO2e</Unit>
+        </Scope2>
+        <Scope3>
+            <Value>${analyzedData.scope3.toFixed(2)}</Value>
+            <Unit>tCO2e</Unit>
+        </Scope3>
+        <TotalEmissions>${analyzedData.brutEmisyon.toFixed(2)}</TotalEmissions>
+    </Emissions>
+    <Financials>
+        <CarbonPriceEUR>${analyzedData.appliedPrice.toFixed(2)}</CarbonPriceEUR>
+        <CBAM_Obligation>${analyzedData.cbamMaliyet.toFixed(2)}</CBAM_Obligation>
+        <TRETS_Deduction>${analyzedData.trEtsMahsup.toFixed(2)}</TRETS_Deduction>
+        <NetPayable>${analyzedData.netOdenecek.toFixed(2)}</NetPayable>
+    </Financials>
+    <Consolidated>${analyzedData.isConsolidated ? 'Yes' : 'No'}</Consolidated>
+</CBAMDeclaration>`;
+
+    const blob = new Blob([xmlString], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CBAM_Beyan_${userData.unvan || 'Firma'}_${date}.xml`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const generatePDF = async () => {
@@ -375,7 +634,7 @@ Kullanıcının mesajı: "${currentInput}"`;
     <div className="app-layout">
       {/* Sidebar */}
       <div className={`sidebar ${!isSidebarOpen ? 'closed' : ''}`}>
-        <div style={{ padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div onClick={() => setActiveMenu('data')} style={{ padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
           <Leaf size={28} color="#10b981" />
           {isSidebarOpen && <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '-0.5px' }}>Yeşil<span style={{color: '#10b981'}}>Defter</span></h2>}
         </div>
@@ -387,8 +646,9 @@ Kullanıcının mesajı: "${currentInput}"`;
           <button className={`nav-item ${activeMenu === 'wallet' ? 'active' : ''}`} onClick={() => setActiveMenu('wallet')}><Wallet size={20} /> Dijital Cüzdan & Pazar</button>
           <button className={`nav-item ${activeMenu === 'hedging' ? 'active' : ''}`} onClick={() => setActiveMenu('hedging')}><ShieldCheck size={20} /> CBAM Hedging</button>
           <button className={`nav-item ${activeMenu === 'sbti' ? 'active' : ''}`} onClick={() => setActiveMenu('sbti')}><Target size={20} /> SBTi Hedef Takibi</button>
+          <button className={`nav-item ${activeMenu === 'gap_analysis' ? 'active' : ''}`} onClick={() => setActiveMenu('gap_analysis')}><CheckCircle2 size={20} /> Yeşil Olgunluk Analizi</button>
           <button className={`nav-item ${activeMenu === 'report' ? 'active' : ''}`} onClick={() => setActiveMenu('report')}><FileText size={20} /> TSRS Raporu</button>
-          <button className={`nav-item ${activeMenu === 'advanced_reports' ? 'active' : ''}`} onClick={() => setActiveMenu('advanced_reports')}><Globe size={20} /> Global Raporlar (LCA, CDP)</button>
+          <button className={`nav-item ${activeMenu === 'advanced_reports' ? 'active' : ''}`} onClick={() => setActiveMenu('advanced_reports')}><Globe size={20} /> Küresel Raporlar (LCA, CDP)</button>
           <button className={`nav-item ${activeMenu === 'academy' ? 'active' : ''}`} onClick={() => setActiveMenu('academy')}><GraduationCap size={20} /> YeşilDefter Akademi</button>
         </nav>
         
@@ -411,6 +671,19 @@ Kullanıcının mesajı: "${currentInput}"`;
           </h1>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <select 
+                className="premium-input" 
+                style={{ padding: '6px 12px', height: 'auto', minHeight: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer', color: '#f8fafc' }} 
+                value={reportingYear} 
+                onChange={(e) => setReportingYear(e.target.value)}
+              >
+                <option value="2023">Yıl: 2023</option>
+                <option value="2024">Yıl: 2024</option>
+                <option value="2025">Yıl: 2025</option>
+                <option value="2026">Yıl: 2026</option>
+              </select>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.1)' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></div>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>Sistem Aktif</span>
@@ -470,8 +743,54 @@ Kullanıcının mesajı: "${currentInput}"`;
               </div>
             )}
             
+            <div className="glass-panel" style={{marginBottom: '24px', background: 'linear-gradient(135deg, rgba(30,41,59,0.5), rgba(15,23,42,0.8))'}}>
+              <div className="card-title" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                  <Factory size={24} color="var(--accent-primary)" /> 
+                  <h3 style={{margin: 0}}>Çoklu Tesis (Şube) Yönetimi</h3>
+                </div>
+                <button className="premium-btn primary" onClick={() => {
+                  const newId = Date.now();
+                  const newFac = { ...defaultFacility, id: newId, unvan: 'Yeni Tesis' };
+                  const syncedFacilities = facilities.map(f => f.id === activeFacilityId ? { ...userData, id: activeFacilityId } : f);
+                  setFacilities([...syncedFacilities, newFac]);
+                  setActiveFacilityId(newId);
+                  setUserData(newFac);
+                }} style={{padding: '8px 16px', fontSize: '14px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: 'white', cursor: 'pointer'}}>
+                  + Yeni Tesis Ekle
+                </button>
+              </div>
+              <div style={{display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px'}}>
+                {facilities.map(fac => (
+                  <button 
+                    key={fac.id}
+                    onClick={() => {
+                      if(fac.id === activeFacilityId) return;
+                      const synced = facilities.map(f => f.id === activeFacilityId ? { ...userData, id: activeFacilityId } : f);
+                      setFacilities(synced);
+                      setUserData(synced.find(f => f.id === fac.id));
+                      setActiveFacilityId(fac.id);
+                    }}
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      background: fac.id === activeFacilityId ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                      color: fac.id === activeFacilityId ? '#fff' : '#cbd5e1',
+                      border: '1px solid',
+                      borderColor: fac.id === activeFacilityId ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      fontWeight: fac.id === activeFacilityId ? 600 : 400
+                    }}
+                  >
+                    {fac.id === activeFacilityId ? (userData.unvan || 'İsimsiz Tesis') : (fac.unvan || 'İsimsiz Tesis')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="glass-panel">
-              <div className="card-title"><Factory size={24} color="var(--accent-primary)" /> <h3>Firma Bilgileri</h3></div>
+              <div className="card-title"><Factory size={24} color="var(--accent-primary)" /> <h3>Tesis Bilgileri</h3></div>
               <div className="grid-2">
                 <div className="form-group">
                   <label>Firma Ünvanı</label>
@@ -486,6 +805,15 @@ Kullanıcının mesajı: "${currentInput}"`;
                     <option value="Alüminyum">Alüminyum (CBAM Yüksek Risk)</option>
                     <option value="Gübre">Gübre (CBAM Yüksek Risk)</option>
                     <option value="Elektrik">Elektrik (CBAM Yüksek Risk)</option>
+                    <option value="Otomotiv">Otomotiv ve Yan Sanayi</option>
+                    <option value="Tekstil">Tekstil ve Hazır Giyim</option>
+                    <option value="Kimya">Kimya ve Plastik</option>
+                    <option value="Gıda">Gıda ve İçecek</option>
+                    <option value="Bilişim">Bilişim ve Teknoloji</option>
+                    <option value="İnşaat">İnşaat ve Yapı Malzemeleri</option>
+                    <option value="Madencilik">Madencilik ve Doğal Kaynaklar</option>
+                    <option value="Perakende">Perakende ve Mağazacılık</option>
+                    <option value="Sağlık">Sağlık ve İlaç</option>
                     <option value="Lojistik">Lojistik ve Taşımacılık</option>
                     <option value="Tarım">Tarım ve Hayvancılık</option>
                     <option value="Turizm">Turizm ve Konaklama</option>
@@ -547,6 +875,15 @@ Kullanıcının mesajı: "${currentInput}"`;
                 )}
               </div>
 
+              <div className="card-title" style={{marginTop: '32px'}}><Network size={24} color="var(--accent-secondary)" /> <h3>Değer Zinciri (Scope 3) Parametreleri</h3></div>
+              <div className="grid-3">
+                <div className="form-group"><label>Personel Ulaşımı (km)</label><input type="number" className="premium-input" placeholder="0" value={userData.personelUlasimKm} onChange={e => handleInput(null, 'personelUlasimKm', e.target.value)} /></div>
+                <div className="form-group"><label>İş Seyahati (km)</label><input type="number" className="premium-input" placeholder="0" value={userData.isSeyahatiKm} onChange={e => handleInput(null, 'isSeyahatiKm', e.target.value)} /></div>
+                <div className="form-group"><label>Satın Alınan Hizmetler (Harcanan Birim)</label><input type="number" className="premium-input" placeholder="0" value={userData.satinAlinanHizmetler} onChange={e => handleInput(null, 'satinAlinanHizmetler', e.target.value)} /></div>
+                <div className="form-group"><label>Lojistik / Nakliye (Ton.km)</label><input type="number" className="premium-input" placeholder="0" value={userData.lojistikTonKm} onChange={e => handleInput(null, 'lojistikTonKm', e.target.value)} /></div>
+                <div className="form-group"><label>Oluşan Atık (Ton)</label><input type="number" className="premium-input" placeholder="0" value={userData.atikTon} onChange={e => handleInput(null, 'atikTon', e.target.value)} /></div>
+              </div>
+
               <div className="card-title" style={{marginTop: '32px'}}><Droplets size={24} color="var(--accent-primary)" /> <h3>TSRS & ESG Parametreleri</h3></div>
               <div className="grid-3">
                 <div className="form-group"><label>Su Tüketimi (m³)</label><input type="number" className="premium-input" placeholder="0" value={userData.esg.su} onChange={e => handleInput('esg', 'su', e.target.value)} /></div>
@@ -572,8 +909,15 @@ Kullanıcının mesajı: "${currentInput}"`;
                 </div>
               </div>
 
-              <div style={{display: 'flex', gap: '16px', marginTop: '24px'}}>
-                <button className="btn-primary" onClick={handleAnalyze}><Zap size={20} /> Verileri Analiz Et</button>
+              <div className="action-panel" style={{display: 'flex', gap: '16px', justifyContent: 'flex-end', marginTop: '24px'}}>
+                <button className="premium-btn primary" onClick={handleAnalyze} style={{padding: '12px 24px', fontSize: '16px', borderRadius: '8px', border: 'none', background: 'var(--accent-primary)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <Zap size={20} /> Seçili Tesisi Analiz Et
+                </button>
+                {facilities.length > 1 && (
+                  <button className="premium-btn" onClick={handleConsolidate} style={{padding: '12px 24px', fontSize: '16px', borderRadius: '8px', border: '1px solid var(--accent-primary)', background: 'transparent', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    <Globe size={20} /> Tüm Tesisleri Konsolide Et
+                  </button>
+                )}
                 <button className="btn-secondary" onClick={() => {
                   setUserData({unvan: '', sektor: 'Diğer', petrol: '', gaz: '', elek: '', uretim: '', ulasimKm: '', lojistikTonKm: '', atikTon: '', esg: { su: '', kadinOran: '', kalite: false }, wallet: { irec: 0, carbonCredit: 0 }, hedging: { isHedging: false, fixedPrice: 0 }});
                   setAnalyzedData(null);
@@ -743,9 +1087,17 @@ Kullanıcının mesajı: "${currentInput}"`;
                   </div>
                 </div>
 
-                <button className="btn-secondary" style={{width: '100%', justifyContent: 'center'}} onClick={generatePDF}>
-                  <Download size={20} /> TSRS Uyumlu Resmi Raporu İndir
-                </button>
+                <div style={{display: 'flex', gap: '16px'}}>
+                  <button className="btn-secondary" style={{flex: 1, justifyContent: 'center'}} onClick={generatePDF}>
+                    <Download size={20} /> TSRS Uyumlu Resmi Raporu İndir
+                  </button>
+                  <button className="premium-btn primary" style={{flex: 1, justifyContent: 'center', padding: '12px 24px', fontSize: '16px', borderRadius: '8px', border: 'none', background: '#eab308', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600}} onClick={generateXML}>
+                    <Download size={20} /> AB CBAM XML Beyanı İndir
+                  </button>
+                  <button className="premium-btn primary" style={{flex: 1, justifyContent: 'center', padding: '12px 24px', fontSize: '16px', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600}} onClick={generateExcel}>
+                    <FileText size={20} /> Excel (Ham Veri) İndir
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -804,6 +1156,56 @@ Kullanıcının mesajı: "${currentInput}"`;
             </div>
           </div>
         )}
+
+      {activeMenu === 'gap_analysis' && (
+          <div className="glass-panel">
+            <div className="card-title"><CheckCircle2 size={24} color="#10b981" /> <h3>Yeşil Olgunluk (GAP) Analizi</h3></div>
+            <p style={{marginBottom: '24px'}}>CimpactPro standartlarına uygun hazırlanan bu test ile şirketinizin sürdürülebilirlik olgunluk seviyesini ölçün ve eksikliklerinizi (GAP) tespit edin.</p>
+            
+            <div style={{display: 'flex', gap: '24px', flexWrap: 'wrap'}}>
+              <div style={{flex: '2', minWidth: '300px'}}>
+                {gapQuestions.map((q, idx) => (
+                  <div key={q.id} style={{marginBottom: '16px', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)'}}>
+                    <div style={{marginBottom: '12px', fontSize: '15px'}}>{idx + 1}. {q.text}</div>
+                    <div style={{display: 'flex', gap: '12px'}}>
+                      <button 
+                        onClick={() => setGapAnswers(prev => ({...prev, [q.id]: 'yes'}))}
+                        style={{flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #10b981', background: gapAnswers[q.id] === 'yes' ? '#10b981' : 'transparent', color: gapAnswers[q.id] === 'yes' ? '#fff' : '#10b981', cursor: 'pointer', transition: 'all 0.2s'}}>
+                        Evet
+                      </button>
+                      <button 
+                        onClick={() => setGapAnswers(prev => ({...prev, [q.id]: 'no'}))}
+                        style={{flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ef4444', background: gapAnswers[q.id] === 'no' ? '#ef4444' : 'transparent', color: gapAnswers[q.id] === 'no' ? '#fff' : '#ef4444', cursor: 'pointer', transition: 'all 0.2s'}}>
+                        Hayır
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{flex: '1', minWidth: '300px'}}>
+                <div style={{background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(15,23,42,0.8))', padding: '24px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.2)', position: 'sticky', top: '24px'}}>
+                  <h4 style={{marginTop: 0, marginBottom: '16px', color: '#10b981'}}>Olgunluk Skoru</h4>
+                  <div style={{fontSize: '48px', fontWeight: 700, marginBottom: '8px', color: '#fff'}}>{calculateGapScore()}%</div>
+                  <div style={{width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden', marginBottom: '24px'}}>
+                    <div style={{width: `${calculateGapScore()}%`, height: '100%', background: '#10b981', transition: 'width 0.5s'}}></div>
+                  </div>
+
+                  <h5 style={{color: '#cbd5e1', marginBottom: '12px'}}>Aksiyon Planı (Reçeteler)</h5>
+                  <ul style={{paddingLeft: '20px', color: '#94a3b8', fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                    {gapAnswers['q1'] === 'no' && <li><strong>Karbon Hesabı:</strong> Kapsam 1 ve 2 emisyonlarınızı "Firma & Veri Girişi" modülünden hemen hesaplamaya başlayın.</li>}
+                    {gapAnswers['q3'] === 'no' && <li><strong>Sertifikasyon:</strong> ISO 14001 belgesi alarak CBAM vergilerinde %10 indirim avantajı sağlayabilirsiniz. Mentörlük modülümüze başvurun.</li>}
+                    {gapAnswers['q4'] === 'no' && <li><strong>Doğrulama:</strong> Kurumsal ayak izinizi bağımsız bir kuruluşa doğrulatarak (ISO 14064) uluslararası geçerlilik kazandırın.</li>}
+                    {gapAnswers['q6'] === 'no' && <li><strong>Yeşil Enerji:</strong> Elektrik tüketiminizi I-REC sertifikaları ile sıfırlayarak Kapsam 2 emisyonlarınızı %100 oranında düşürebilirsiniz.</li>}
+                    {calculateGapScore() === 100 && <li style={{color: '#10b981'}}>Tebrikler! Sürdürülebilirlik altyapınız uluslararası standartlara (CBAM, CSRD) tam uyumlu.</li>}
+                    {calculateGapScore() < 100 && calculateGapScore() > 0 && Object.values(gapAnswers).length === gapQuestions.length && <li>Eksik süreçlerinizi tamamlamak için "Hizmetlerimiz" sekmesinden danışmanlık talep edebilirsiniz.</li>}
+                    {Object.values(gapAnswers).length === 0 && <li>Analizi başlatmak için yandaki soruları yanıtlayın.</li>}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+      )}
 
         {activeMenu === 'advanced_reports' && (
           <div>
