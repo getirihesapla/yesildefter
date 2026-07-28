@@ -688,7 +688,7 @@ Kullanıcının mesajı: "${currentInput}"`;
           <button className={`nav-item ${activeMenu === 'wallet' ? 'active' : ''}`} onClick={() => setActiveMenu('wallet')}><Wallet size={20} /> Dijital Cüzdan & Pazar</button>
           <button className={`nav-item ${activeMenu === 'hedging' ? 'active' : ''}`} onClick={() => setActiveMenu('hedging')}><ShieldCheck size={20} /> CBAM Hedging</button>
           <button className={`nav-item ${activeMenu === 'sbti' ? 'active' : ''}`} onClick={() => setActiveMenu('sbti')}><Target size={20} /> SBTi Hedef Takibi</button>
-          <button className={`nav-item ${activeMenu === 'gap_analysis' ? 'active' : ''}`} onClick={() => setActiveMenu('gap_analysis')}><CheckCircle2 size={20} /> Yeşil Olgunluk Analizi</button>
+
           <button className={`nav-item ${activeMenu === 'report' ? 'active' : ''}`} onClick={() => setActiveMenu('report')}><FileText size={20} /> TSRS Raporu</button>
           <button className={`nav-item ${activeMenu === 'advanced_reports' ? 'active' : ''}`} onClick={() => setActiveMenu('advanced_reports')}><Globe size={20} /> Küresel Raporlar (LCA, CDP)</button>
           <button className={`nav-item ${activeMenu === 'academy' ? 'active' : ''}`} onClick={() => setActiveMenu('academy')}><GraduationCap size={20} /> YeşilDefter Akademi</button>
@@ -1251,55 +1251,7 @@ Kullanıcının mesajı: "${currentInput}"`;
           </div>
         )}
 
-      {activeMenu === 'gap_analysis' && (
-          <div className="glass-panel">
-            <div className="card-title"><CheckCircle2 size={24} color="#10b981" /> <h3>Yeşil Olgunluk (GAP) Analizi</h3></div>
-            <p style={{marginBottom: '24px'}}>CimpactPro standartlarına uygun hazırlanan bu test ile şirketinizin sürdürülebilirlik olgunluk seviyesini ölçün ve eksikliklerinizi (GAP) tespit edin.</p>
-            
-            <div style={{display: 'flex', gap: '24px', flexWrap: 'wrap'}}>
-              <div style={{flex: '2', minWidth: '300px'}}>
-                {gapQuestions.map((q, idx) => (
-                  <div key={q.id} style={{marginBottom: '16px', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)'}}>
-                    <div style={{marginBottom: '12px', fontSize: '15px'}}>{idx + 1}. {q.text}</div>
-                    <div style={{display: 'flex', gap: '12px'}}>
-                      <button 
-                        onClick={() => setGapAnswers(prev => ({...prev, [q.id]: 'yes'}))}
-                        style={{flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #10b981', background: gapAnswers[q.id] === 'yes' ? '#10b981' : 'transparent', color: gapAnswers[q.id] === 'yes' ? '#fff' : '#10b981', cursor: 'pointer', transition: 'all 0.2s'}}>
-                        Evet
-                      </button>
-                      <button 
-                        onClick={() => setGapAnswers(prev => ({...prev, [q.id]: 'no'}))}
-                        style={{flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ef4444', background: gapAnswers[q.id] === 'no' ? '#ef4444' : 'transparent', color: gapAnswers[q.id] === 'no' ? '#fff' : '#ef4444', cursor: 'pointer', transition: 'all 0.2s'}}>
-                        Hayır
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
 
-              <div style={{flex: '1', minWidth: '300px'}}>
-                <div style={{background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(15,23,42,0.8))', padding: '24px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.2)', position: 'sticky', top: '24px'}}>
-                  <h4 style={{marginTop: 0, marginBottom: '16px', color: '#10b981'}}>Olgunluk Skoru</h4>
-                  <div style={{fontSize: '48px', fontWeight: 700, marginBottom: '8px', color: '#fff'}}>{calculateGapScore()}%</div>
-                  <div style={{width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden', marginBottom: '24px'}}>
-                    <div style={{width: `${calculateGapScore()}%`, height: '100%', background: '#10b981', transition: 'width 0.5s'}}></div>
-                  </div>
-
-                  <h5 style={{color: '#cbd5e1', marginBottom: '12px'}}>Aksiyon Planı (Reçeteler)</h5>
-                  <ul style={{paddingLeft: '20px', color: '#94a3b8', fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                    {gapAnswers['q1'] === 'no' && <li><strong>Karbon Hesabı:</strong> Kapsam 1 ve 2 emisyonlarınızı "Firma & Veri Girişi" modülünden hemen hesaplamaya başlayın.</li>}
-                    {gapAnswers['q3'] === 'no' && <li><strong>Sertifikasyon:</strong> ISO 14001 belgesi alarak CBAM vergilerinde %10 indirim avantajı sağlayabilirsiniz. Mentörlük modülümüze başvurun.</li>}
-                    {gapAnswers['q4'] === 'no' && <li><strong>Doğrulama:</strong> Kurumsal ayak izinizi bağımsız bir kuruluşa doğrulatarak (ISO 14064) uluslararası geçerlilik kazandırın.</li>}
-                    {gapAnswers['q6'] === 'no' && <li><strong>Yeşil Enerji:</strong> Elektrik tüketiminizi I-REC sertifikaları ile sıfırlayarak Kapsam 2 emisyonlarınızı %100 oranında düşürebilirsiniz.</li>}
-                    {calculateGapScore() === 100 && <li style={{color: '#10b981'}}>Tebrikler! Sürdürülebilirlik altyapınız uluslararası standartlara (CBAM, CSRD) tam uyumlu.</li>}
-                    {calculateGapScore() < 100 && calculateGapScore() > 0 && Object.values(gapAnswers).length === gapQuestions.length && <li>Eksik süreçlerinizi tamamlamak için "Hizmetlerimiz" sekmesinden danışmanlık talep edebilirsiniz.</li>}
-                    {Object.values(gapAnswers).length === 0 && <li>Analizi başlatmak için yandaki soruları yanıtlayın.</li>}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-      )}
 
         {activeMenu === 'advanced_reports' && (
           <div>
