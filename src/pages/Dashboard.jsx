@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
-import { LayoutDashboard, Database, Wallet, ShieldCheck, FileText, Download, Factory, AlertTriangle, Info, Zap, Leaf, Droplets, TrendingUp, Cpu, MessageSquare, X, Send, LogOut, GraduationCap, Target, Globe, Video, PlayCircle, CheckCircle2, Network, Mail, Users } from 'lucide-react';
+import { LayoutDashboard, Database, Wallet, ShieldCheck, FileText, Download, Factory, AlertTriangle, Info, Zap, Leaf, Droplets, TrendingUp, TrendingDown, Search, Cpu, MessageSquare, X, Send, LogOut, GraduationCap, Target, Globe, Video, PlayCircle, CheckCircle2, Network, Mail, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dbService } from '../services/db';
@@ -65,6 +65,10 @@ function Dashboard() {
   const currentYear = new Date().getFullYear();
   const [reportingYear, setReportingYear] = useState(currentYear.toString());
   const [allYearsData, setAllYearsData] = useState({});
+
+  const [searchYearQuery, setSearchYearQuery] = useState('');
+  const [comparisonResult, setComparisonResult] = useState(null);
+  const [comparisonError, setComparisonError] = useState('');
 
   const [gapAnswers, setGapAnswers] = useState({});
   const gapQuestions = [
@@ -159,6 +163,44 @@ function Dashboard() {
   };
 
   const isHighRiskSector = ['Demir-Çelik', 'Çimento', 'Alüminyum', 'Gübre', 'Hidrojen', 'Elektrik'].includes(userData.sektor);
+
+  const handleCompareYears = () => {
+    setComparisonError('');
+    if (!searchYearQuery) {
+      setComparisonError('Lütfen karşılaştırmak istediğiniz yılı seçin/yazın.');
+      return;
+    }
+    if (searchYearQuery === reportingYear) {
+      setComparisonError('Mevcut yılla aynı yılı karşılaştıramazsınız.');
+      return;
+    }
+    const targetData = allYearsData[searchYearQuery]?.analyzedData;
+    if (!targetData) {
+      setComparisonError(`Sistemde ${searchYearQuery} yılına ait analiz edilmiş kayıt bulunamadı.`);
+      setComparisonResult(null);
+      return;
+    }
+    if (!analyzedData) {
+      setComparisonError('Lütfen önce mevcut yılı analiz edin (Seçili Tesisi Analiz Et).');
+      setComparisonResult(null);
+      return;
+    }
+
+    const calculateDiff = (current, past) => {
+      if (!past || past === 0) return { diff: current, perc: 100, isIncrease: true };
+      const diff = current - past;
+      const perc = (diff / past) * 100;
+      return { diff: diff, perc: Math.abs(perc), isIncrease: diff > 0 };
+    };
+
+    setComparisonResult({
+      targetYear: searchYearQuery,
+      scope1: calculateDiff(analyzedData.scope1, targetData.scope1),
+      scope2: calculateDiff(analyzedData.scope2, targetData.scope2),
+      scope3: calculateDiff(analyzedData.scope3, targetData.scope3),
+      brutEmisyon: calculateDiff(analyzedData.brutEmisyon, targetData.brutEmisyon)
+    });
+  };
 
   const handleAnalyze = () => {
     const d = userData;
@@ -923,6 +965,59 @@ Kullanıcının mesajı: "${currentInput}"`;
                 }}>Verileri Sıfırla</button>
               </div>
             </div>
+
+            {analyzedData && (
+              <div className="glass-panel" style={{marginTop: '24px'}}>
+                <div className="card-title" style={{marginBottom: '16px'}}>
+                  <Search size={24} color="var(--accent-secondary)" /> 
+                  <h3>Yıllar Arası Trend & Karşılaştırma Analizi</h3>
+                </div>
+                <p style={{marginBottom: '16px', color: '#94a3b8', fontSize: '0.95rem'}}>Seçili yılın (<strong>{reportingYear}</strong>) emisyon verilerini geçmiş yıllardaki performansınızla yan yana kıyaslayın.</p>
+                
+                <div style={{display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px'}}>
+                  <div style={{flex: 1}}>
+                    <select 
+                      className="premium-input" 
+                      value={searchYearQuery} 
+                      onChange={(e) => setSearchYearQuery(e.target.value)}
+                    >
+                      <option value="">Karşılaştırılacak Yılı Seçin...</option>
+                      {Array.from({length: 13}, (_, i) => 2018 + i).map(year => (
+                        <option key={`comp-${year}`} value={year} style={{color: '#0f172a'}}>Yıl: {year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button className="premium-btn primary" onClick={handleCompareYears} style={{padding: '12px 24px', fontSize: '16px', borderRadius: '8px', border: 'none', background: 'var(--accent-secondary)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    <Search size={20} /> Karşılaştır
+                  </button>
+                </div>
+
+                {comparisonError && <div style={{color: '#ef4444', marginBottom: '16px', padding: '12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)'}}>{comparisonError}</div>}
+
+                {comparisonResult && (
+                  <div style={{background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '24px'}}>
+                    <h4 style={{marginBottom: '20px', color: '#fff', fontSize: '1.1rem', textAlign: 'center'}}>{reportingYear} Yılı vs {comparisonResult.targetYear} Yılı Karşılaştırması</h4>
+                    <div className="grid-4" style={{gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'}}>
+                      {[
+                        { label: 'Brüt Emisyon', data: comparisonResult.brutEmisyon },
+                        { label: 'Kapsam 1 (Doğrudan)', data: comparisonResult.scope1 },
+                        { label: 'Kapsam 2 (Dolaylı)', data: comparisonResult.scope2 },
+                        { label: 'Kapsam 3 (Değer Zinciri)', data: comparisonResult.scope3 }
+                      ].map(item => (
+                        <div key={item.label} style={{background: 'rgba(11, 17, 32, 0.5)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center'}}>
+                          <div style={{fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px'}}>{item.label}</div>
+                          <div style={{fontSize: '1.2rem', fontWeight: 'bold', color: item.data.isIncrease ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}>
+                            {item.data.isIncrease ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                            {item.data.perc.toFixed(1)}% {item.data.isIncrease ? 'Artış' : 'Düşüş'}
+                          </div>
+                          <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '6px'}}>Fark: {item.data.diff > 0 ? '+' : ''}{item.data.diff.toFixed(2)} tCO2e</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
