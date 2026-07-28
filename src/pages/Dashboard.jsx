@@ -678,10 +678,10 @@ Kullanıcının mesajı: "${currentInput}"`;
                 value={reportingYear} 
                 onChange={(e) => setReportingYear(e.target.value)}
               >
-                <option value="2023">Yıl: 2023</option>
-                <option value="2024">Yıl: 2024</option>
-                <option value="2025">Yıl: 2025</option>
-                <option value="2026">Yıl: 2026</option>
+                <option value="2023" style={{color: '#0f172a'}}>Yıl: 2023</option>
+                <option value="2024" style={{color: '#0f172a'}}>Yıl: 2024</option>
+                <option value="2025" style={{color: '#0f172a'}}>Yıl: 2025</option>
+                <option value="2026" style={{color: '#0f172a'}}>Yıl: 2026</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.1)' }}>
